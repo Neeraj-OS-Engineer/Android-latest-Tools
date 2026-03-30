@@ -65,6 +65,10 @@ dependencies {
     implementation libs.camera.lifecycle
     implementation libs.camera.view
 
+
+    implementation 'com.google.mediapipe:mediapipe-android:0.10.9'
+    implementation 'com.google.mediapipe:tasks-vision:0.10.9'
+
     // ExoPlayer (Media3)
     implementation libs.media3.exoplayer
     implementation libs.media3.hls
