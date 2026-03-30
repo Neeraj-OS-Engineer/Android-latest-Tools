@@ -30,7 +30,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     private SpatialRenderer spatialRenderer;
     private GestureController gestureController;
     private CameraXHelper cameraHelper;
-    private HandLandmarkerHelper handLandmarkerHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,6 +101,7 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
                 @Override
                 public void onButtonTouch(GestureController.ButtonType buttonType) {
                     // Handle button touch (optional)
+                    Log.d(TAG, "Button touched: " + buttonType);
                 }
                 @Override
                 public void onHandXChange(float normalizedX) {
@@ -124,7 +124,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     }
 
     private void startMediaScanService() {
-        // Start foreground service
         android.content.Intent serviceIntent = new android.content.Intent(this, MediaScanService.class);
         ContextCompat.startForegroundService(this, serviceIntent);
     }
@@ -136,7 +135,8 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
             while (!mediaFile.exists()) {
                 try { Thread.sleep(500); } catch (InterruptedException e) { break; }
             }
-            List<MediaItem> items = MediaItem.loadFromFile(mediaFile);
+            List<com.ns.dev.jdkhandlookingdeep.MediaItem> items =
+                    com.ns.dev.jdkhandlookingdeep.MediaItem.loadFromFile(mediaFile);
             if (items != null && !items.isEmpty()) {
                 runOnUiThread(() -> spatialRenderer.setMediaList(items));
             } else {
@@ -172,9 +172,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (handLandmarkerHelper != null) {
-            handLandmarkerHelper.close();
-        }
         if (cameraHelper != null) {
             cameraHelper.stopCamera();
         }
