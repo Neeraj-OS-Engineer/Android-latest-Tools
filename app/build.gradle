@@ -44,13 +44,16 @@ dependencies {
     implementation libs.material
     implementation libs.constraintlayout
 
-    // LibGDX
+    // LibGDX core and Android backend
     implementation libs.gdx
     implementation libs.gdx.android
-    implementation libs.gdx.platform.armv7
-    implementation libs.gdx.platform.arm64
-    implementation libs.gdx.platform.x86
-    implementation libs.gdx.platform.x86_64
+
+    // LibGDX platform natives (using the version from the catalog)
+    def gdxVersion = libs.versions.gdx.get()
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
 
     // MediaPipe
     implementation libs.mediapipe
