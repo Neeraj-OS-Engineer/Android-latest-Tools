@@ -1,12 +1,10 @@
 name: Android Spatial Player Build
 
 on:
-  # Jab bhi aap 'main' branch par push karenge, build shuru ho jayegi
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  # Manual trigger ke liye
   workflow_dispatch:
 
 jobs:
@@ -27,22 +25,23 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # LibGDX aur MediaPipe ke liye NDK bahut zaruri hai
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: r25c # Aapke build.gradle ke version se match karta hua
+          ndk-version: r25c
           add-to-path: true
 
+      # Yahan hum permissions 'app' folder ke andar wale gradlew ko de rahe hain
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x app/gradlew
 
+      # Sabse important step: working-directory ko 'app' par set karna
       - name: Build Debug APK
+        working-directory: ./app
         run: ./gradlew assembleDebug --stacktrace
 
-      # Build hone ke baad APK ko GitHub par upload karna
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SpatialPlayer-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/app/build/outputs/apk/debug/app-debug.apk
