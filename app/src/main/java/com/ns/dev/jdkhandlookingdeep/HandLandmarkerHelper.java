@@ -2,12 +2,15 @@ package com.ns.dev.jdkhandlookingdeep;
 
 import android.content.Context;
 import android.util.Log;
+
 import androidx.camera.core.ImageProxy;
+
 import com.google.mediapipe.framework.image.MPImage;
 import com.google.mediapipe.tasks.vision.core.RunningMode;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker.HandLandmarkerOptions;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -29,21 +32,19 @@ public class HandLandmarkerHelper {
         try {
             HandLandmarkerOptions options = HandLandmarkerOptions.builder()
                     .setRunningMode(RunningMode.LIVE_STREAM)
-                    .setResultListener(this::onResult)    // expects (HandLandmarkerResult, MPImage, long)
+                    .setResultListener((result, mpImage, timestamp) -> {
+                        // Forward the result to the listener on the main thread
+                        if (listener != null) {
+                            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+                            mainHandler.post(() -> listener.onHandLandmarks(result));
+                        }
+                    })
                     .setErrorListener(this::onError)
                     .setNumHands(2)
                     .build();
             handLandmarker = HandLandmarker.createFromOptions(context, options);
         } catch (Exception e) {
             Log.e(TAG, "Failed to create HandLandmarker", e);
-        }
-    }
-
-    // Correct signature: three parameters (result, image, timestamp)
-    private void onResult(HandLandmarkerResult result, MPImage mpImage, long timestamp) {
-        if (listener != null) {
-            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-            mainHandler.post(() -> listener.onHandLandmarks(result));
         }
     }
 
