@@ -14,7 +14,8 @@ android {
         versionName "1.0"
 
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            // LibGDX aur MediaPipe ke liye in dono ka hona kaafi hai
+            abiFilters "armeabi-v7a", "arm64-v8a"
         }
     }
 
@@ -26,40 +27,44 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        // CRITICAL: Media3 aur MediaPipe 0.10+ ke liye Java 17 mandatory hai
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     packagingOptions {
-        exclude 'META-INF/DEPENDENCIES'
-        exclude 'META-INF/NOTICE'
-        exclude 'META-INF/LICENSE'
-        exclude 'META-INF/LICENSE.txt'
-        exclude 'META-INF/NOTICE.txt'
+        resources {
+            excludes += 'META-INF/DEPENDENCIES'
+            excludes += 'META-INF/NOTICE'
+            excludes += 'META-INF/LICENSE'
+            excludes += 'META-INF/LICENSE.txt'
+            excludes += 'META-INF/NOTICE.txt'
+            excludes += 'META-INF/ASL2.0'
+            excludes += 'META-INF/*.kotlin_module' // Kotlin files ko nikaalne ke liye
+        }
     }
 }
 
 dependencies {
-    // AndroidX & Material
-    implementation libs.androidx.core.ktx
+    // AndroidX & Material (KOTLIN KTX NIKAL DIYA HAI)
+    implementation libs.androidx.core      // core-ktx ki jagah sirf core
     implementation libs.androidx.appcompat
     implementation libs.material
     implementation libs.constraintlayout
 
-    // LibGDX core and Android backend
+    // LibGDX (3D Engine)
     implementation libs.gdx
     implementation libs.gdx.android
 
-    // LibGDX platform natives
-    def gdxVersion = libs.versions.gdx.get()
-    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
-    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
-    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
-    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
+    // LibGDX platform natives (Cleaner way using your TOML logic)
+    runtimeOnly libs.gdx.natives.arm64
+    runtimeOnly libs.gdx.natives.armeabi
 
-    // MediaPipe – included directly (no version catalog)
-    implementation 'com.google.mediapipe:mediapipe-android:0.10.14'
+    // MediaPipe - FIX: Sirf tasks-vision kaafi hai
+    // 'mediapipe-android' dhoondne par error aa raha tha server pe
     implementation 'com.google.mediapipe:tasks-vision:0.10.14'
+    
+    // CameraX
     implementation libs.camera.core
     implementation libs.camera.camera2
     implementation libs.camera.lifecycle
@@ -67,7 +72,6 @@ dependencies {
 
     // ExoPlayer (Media3)
     implementation libs.media3.exoplayer
-    implementation libs.media3.hls
     implementation libs.media3.ui
     implementation libs.media3.session
 
