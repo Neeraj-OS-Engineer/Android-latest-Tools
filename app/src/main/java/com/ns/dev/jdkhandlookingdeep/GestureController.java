@@ -6,8 +6,8 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
-import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark;
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 
 import java.util.HashMap;
 import java.util.List;
@@ -47,26 +47,15 @@ public class GestureController {
     private float lastHandX = 0.5f;
 
     // Landmark indices (same as before)
-    private static final int WRIST = 0;
-    private static final int THUMB_CMC = 1;
-    private static final int THUMB_MCP = 2;
-    private static final int THUMB_IP = 3;
-    private static final int THUMB_TIP = 4;
-    private static final int INDEX_MCP = 5;
-    private static final int INDEX_PIP = 6;
-    private static final int INDEX_DIP = 7;
     private static final int INDEX_TIP = 8;
+    private static final int THUMB_TIP = 4;
+    private static final int THUMB_MCP = 2;
+    private static final int INDEX_MCP = 5;
     private static final int MIDDLE_MCP = 9;
-    private static final int MIDDLE_PIP = 10;
-    private static final int MIDDLE_DIP = 11;
     private static final int MIDDLE_TIP = 12;
     private static final int RING_MCP = 13;
-    private static final int RING_PIP = 14;
-    private static final int RING_DIP = 15;
     private static final int RING_TIP = 16;
     private static final int PINKY_MCP = 17;
-    private static final int PINKY_PIP = 18;
-    private static final int PINKY_DIP = 19;
     private static final int PINKY_TIP = 20;
 
     public GestureController(Camera camera, GestureListener listener) {
@@ -102,7 +91,7 @@ public class GestureController {
         // Carousel rotation: use right hand if available, else left
         List<NormalizedLandmark> handForRotation = (right != null) ? right : left;
         if (handForRotation != null) {
-            float handX = handForRotation.get(INDEX_TIP).getX(); // 0..1
+            float handX = handForRotation.get(INDEX_TIP).x(); // 0..1
             if (listener != null && Math.abs(handX - lastHandX) > 0.01f) {
                 listener.onHandXChange(handX);
             }
@@ -185,13 +174,14 @@ public class GestureController {
     private boolean isThumbUp(List<NormalizedLandmark> landmarks) {
         NormalizedLandmark thumbTip = landmarks.get(THUMB_TIP);
         NormalizedLandmark thumbBase = landmarks.get(THUMB_MCP);
-        return thumbTip.getY() < thumbBase.getY() - 0.02f;
+        // In normalized coordinates, y increases downward. "Up" means smaller y.
+        return thumbTip.y() < thumbBase.y() - 0.02f;
     }
 
     private boolean isThumbDown(List<NormalizedLandmark> landmarks) {
         NormalizedLandmark thumbTip = landmarks.get(THUMB_TIP);
         NormalizedLandmark thumbBase = landmarks.get(THUMB_MCP);
-        return thumbTip.getY() > thumbBase.getY() + 0.02f;
+        return thumbTip.y() > thumbBase.y() + 0.02f;
     }
 
     private boolean isHandOpen(List<NormalizedLandmark> landmarks) {
@@ -204,16 +194,16 @@ public class GestureController {
     }
 
     private float distance(NormalizedLandmark a, NormalizedLandmark b) {
-        float dx = a.getX() - b.getX();
-        float dy = a.getY() - b.getY();
-        float dz = a.getZ() - b.getZ();
+        float dx = a.x() - b.x();
+        float dy = a.y() - b.y();
+        float dz = a.z() - b.z();
         return (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
     }
 
     private Ray getFingerTipRay(List<NormalizedLandmark> landmarks) {
         NormalizedLandmark tip = landmarks.get(INDEX_TIP);
-        float screenX = tip.getX() * Gdx.graphics.getWidth();
-        float screenY = tip.getY() * Gdx.graphics.getHeight();
+        float screenX = tip.x() * Gdx.graphics.getWidth();
+        float screenY = tip.y() * Gdx.graphics.getHeight();
         screenY = Gdx.graphics.getHeight() - screenY; // invert Y for LibGDX
         return camera.getPickRay(screenX, screenY);
     }
@@ -226,11 +216,13 @@ public class GestureController {
         for (Map.Entry<ButtonType, ModelInstance> entry : buttonModels.entrySet()) {
             ModelInstance instance = entry.getValue();
             Vector3 center = instance.transform.getTranslation(new Vector3());
-            float radius = 0.5f; // approximate radius – adjust based on actual button size
-            float dist = Intersector.intersectRaySphere(ray, center, radius, intersection);
-            if (dist != -1f && dist < closestDist) {
-                closestDist = dist;
-                hitType = entry.getKey();
+            float radius = 0.5f; // approximate – adjust based on actual button size
+            if (Intersector.intersectRaySphere(ray, center, radius, intersection)) {
+                float dist = intersection.dst(ray.origin);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    hitType = entry.getKey();
+                }
             }
         }
         return hitType;
