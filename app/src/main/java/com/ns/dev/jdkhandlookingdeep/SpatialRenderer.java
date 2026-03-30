@@ -8,14 +8,14 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.ExoPlayerFactory;
-import androidx.media3.ui.PlayerView;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g3d.*;
+import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.environment.PointLight;
@@ -148,8 +148,8 @@ public class SpatialRenderer implements ApplicationListener {
         Material glassMaterial = new Material(
                 ColorAttribute.createDiffuse(1, 1, 1, 0.6f),
                 ColorAttribute.createSpecular(1, 1, 1, 1f),
-                FloatAttribute.createAlphaTest(0.1f),
-                BlendingAttribute.Translucent
+                new BlendingAttribute(true),                      // enable blending for transparency
+                FloatAttribute.createAlphaTest(0.1f)              // discard fragments with alpha < 0.1
         );
 
         // Define positions for four buttons (play/pause, next, volume up, volume down)
@@ -257,6 +257,12 @@ public class SpatialRenderer implements ApplicationListener {
         // Placeholder
     }
 
+    public void setCarouselTargetAngle(float angle) {
+        if (carousel != null) {
+            carousel.setTargetAngle(angle);
+        }
+    }
+
     public void loadMedia(String filePath) {
         currentMediaPath = filePath;
         Uri uri = Uri.parse(filePath);
@@ -290,7 +296,7 @@ public class SpatialRenderer implements ApplicationListener {
         // Update vinyl rotation in audio mode
         if (isAudioMode && mediaLoaded) {
             rotationAngle += Gdx.graphics.getDeltaTime() * 60; // speed in deg/sec
-            vinylRecord.transform.setRotation(0, 1, 0, rotationAngle);
+            vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
         }
 
         // Render all models
