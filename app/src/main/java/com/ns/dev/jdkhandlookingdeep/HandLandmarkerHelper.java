@@ -29,7 +29,7 @@ public class HandLandmarkerHelper {
         try {
             HandLandmarkerOptions options = HandLandmarkerOptions.builder()
                     .setRunningMode(RunningMode.LIVE_STREAM)
-                    .setResultListener(this::onResult)
+                    .setResultListener(this::onResult)    // expects (HandLandmarkerResult, MPImage, long)
                     .setErrorListener(this::onError)
                     .setNumHands(2)
                     .build();
@@ -39,7 +39,7 @@ public class HandLandmarkerHelper {
         }
     }
 
-    // The result listener must accept (HandLandmarkerResult, MPImage, long)
+    // Correct signature: three parameters (result, image, timestamp)
     private void onResult(HandLandmarkerResult result, MPImage mpImage, long timestamp) {
         if (listener != null) {
             android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
