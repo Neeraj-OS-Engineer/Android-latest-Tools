@@ -3,8 +3,8 @@ plugins {
 }
 
 android {
-    namespace "com.ns.dev.jdkhandlookingdeep"   // REQUIRED for AGP 8.0+
-    compileSdk 35
+    namespace "com.ns.dev.jdkhandlookingdeep"
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.ns.dev.jdkhandlookingdeep"
@@ -41,7 +41,7 @@ android {
 
 dependencies {
     // AndroidX & Material
-    implementation libs.androidx.core.ktx          // <-- added
+    implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material
     implementation libs.constraintlayout
@@ -50,24 +50,20 @@ dependencies {
     implementation libs.gdx
     implementation libs.gdx.android
 
-    // LibGDX platform natives (using the version from the catalog)
+    // LibGDX platform natives
     def gdxVersion = libs.versions.gdx.get()
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
 
-    // MediaPipe
-    implementation libs.mediapipe
-    implementation libs.mediapipe.tasks.vision
+    // MediaPipe – included directly (no version catalog)
+    implementation 'com.google.mediapipe:mediapipe-android:0.10.9'
+    implementation 'com.google.mediapipe:tasks-vision:0.10.9'
     implementation libs.camera.core
     implementation libs.camera.camera2
     implementation libs.camera.lifecycle
     implementation libs.camera.view
-
-
-    implementation 'com.google.mediapipe:mediapipe-android:0.10.9'
-    implementation 'com.google.mediapipe:tasks-vision:0.10.9'
 
     // ExoPlayer (Media3)
     implementation libs.media3.exoplayer
