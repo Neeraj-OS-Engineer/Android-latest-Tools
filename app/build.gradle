@@ -58,8 +58,8 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
 
     // MediaPipe – included directly (no version catalog)
-    implementation 'com.google.mediapipe:mediapipe-android:0.10.9'
-    implementation 'com.google.mediapipe:tasks-vision:0.10.9'
+    implementation 'com.google.mediapipe:mediapipe-android:0.10.14'
+    implementation 'com.google.mediapipe:tasks-vision:0.10.14'
     implementation libs.camera.core
     implementation libs.camera.camera2
     implementation libs.camera.lifecycle
