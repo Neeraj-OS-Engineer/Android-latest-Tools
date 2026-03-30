@@ -18,6 +18,11 @@ android {
         }
     }
 
+    aaptOptions {
+        noCompress "tflite"
+        noCompress "task"
+    }
+
     buildTypes {
         release {
             minifyEnabled false
