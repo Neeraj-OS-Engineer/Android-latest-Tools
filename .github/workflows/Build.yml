@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Full history for better debugging
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -24,21 +24,23 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Setup Android SDK & NDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          # NDK version aapke build.gradle se match honi chahiye
           log-accepted-android-sdk-licenses: true
 
-      - name: Install NDK
+      # SABSE IMPORTANT STEP: Saare licenses ko automatic 'yes' bolna
+      - name: Accept Android SDK Licenses
         run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # FIX: JAR Access Error ko khatam karne ke liye execute permission
+      - name: Install NDK & Platforms
+        run: |
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "ndk;25.2.9519653"
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # OPTIMIZATION: Gradle Daemon ko zyada memory dena
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
         env:
@@ -48,5 +50,5 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: SpatialPlayer-Debug
+          name: SpatialPlayer-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
