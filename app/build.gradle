@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace "com.ns.dev.jdkhandlookingdeep"   // REQUIRED for AGP 8.0+
     compileSdk 34
 
     defaultConfig {
