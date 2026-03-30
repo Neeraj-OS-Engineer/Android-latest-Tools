@@ -1,0 +1,27 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    // Isse saari libraries ek hi jagah se control hongi
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        
+        // Ye add karein LibGDX aur purani networking libraries ke liye
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+        maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+        
+        // Jitpack agar aapko koi custom GitHub library use karni ho
+        maven { url "https://jitpack.io" }
+    }
+}
+
+rootProject.name = "Android-letest-Tools"
+
+include(":app")
