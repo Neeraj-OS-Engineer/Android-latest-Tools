@@ -1,15 +1,40 @@
 [versions]
-agp = "8.13.0"
-core = "1.17.0"
-appcompat = "1.7.1"
-material = "1.13.0"
-constraintlayout = "2.2.1"
+agp = "8.1.0"
+gdx = "1.12.1"
+mediapipe = "0.10.14"
+media3 = "1.4.1"
+androidxCore = "1.12.0"
+material = "1.12.0"
+camera = "1.4.1"
+gson = "2.10.1"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidxCore" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.2.0" }
+
+gdx = { group = "com.badlogicgames.gdx", name = "gdx", version.ref = "gdx" }
+gdx-android = { group = "com.badlogicgames.gdx", name = "gdx-backend-android", version.ref = "gdx" }
+gdx-platform-armv7 = { group = "com.badlogicgames.gdx", name = "gdx-platform", version.ref = "gdx", classifier = "natives-armeabi-v7a" }
+gdx-platform-arm64 = { group = "com.badlogicgames.gdx", name = "gdx-platform", version.ref = "gdx", classifier = "natives-arm64-v8a" }
+gdx-platform-x86 = { group = "com.badlogicgames.gdx", name = "gdx-platform", version.ref = "gdx", classifier = "natives-x86" }
+gdx-platform-x86_64 = { group = "com.badlogicgames.gdx", name = "gdx-platform", version.ref = "gdx", classifier = "natives-x86_64" }
+
+mediapipe = { group = "com.google.mediapipe", name = "mediapipe-android", version.ref = "mediapipe" }
+mediapipe-tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "mediapipe" }
+
+camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camera" }
+camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camera" }
+camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camera" }
+camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camera" }
+
+media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+media3-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
+media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
+
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-
-[libraries]
-androidx-core = { group = "androidx.core", name = "core", version.ref = "core" }
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
