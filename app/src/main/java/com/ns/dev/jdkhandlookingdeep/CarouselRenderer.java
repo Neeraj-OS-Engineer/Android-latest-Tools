@@ -44,11 +44,14 @@ public class CarouselRenderer {
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.5f));
     }
 
+    /**
+     * Builds the carousel from a list of our custom MediaItem objects.
+     */
     public void setItems(List<MediaItem> mediaList) {
         items.clear();
         ModelBuilder builder = new ModelBuilder();
 
-        // Placeholder texture (must exist in assets/)
+        // Placeholder texture (must be in assets/)
         Texture placeholder = new Texture(Gdx.files.internal("media_placeholder.png"));
 
         for (int i = 0; i < mediaList.size(); i++) {
@@ -56,7 +59,7 @@ public class CarouselRenderer {
             Material material = new Material(
                     TextureAttribute.createDiffuse(placeholder),
                     ColorAttribute.createSpecular(1, 1, 1, 1),
-                    FloatAttribute.createShininess(32f)
+                    new FloatAttribute(FloatAttribute.Shininess, 32f)   // works in all LibGDX versions
             );
             Model model = builder.createBox(1.2f, 1.2f, 0.1f, material,
                     VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates);
@@ -77,10 +80,14 @@ public class CarouselRenderer {
             float z = (float) Math.cos(effectiveAngle) * radius;
             item.position.set(x, 0, z);
             item.model.transform.setTranslation(item.position);
+            // Rotate each item to face the center
             item.model.transform.rotate(Vector3.Y, (float) Math.toDegrees(effectiveAngle));
         }
     }
 
+    /**
+     * Call this in the render loop to smoothly rotate towards the target angle.
+     */
     public void update(float delta) {
         if (!visible) return;
         float diff = targetAngle - currentAngle;
@@ -93,12 +100,18 @@ public class CarouselRenderer {
         updatePositions();
     }
 
+    /**
+     * Rotates the carousel by a delta angle (radians). Positive = clockwise.
+     */
     public void rotate(float deltaAngle) {
         targetAngle += deltaAngle;
         while (targetAngle > Math.PI * 2) targetAngle -= Math.PI * 2;
         while (targetAngle < 0) targetAngle += Math.PI * 2;
     }
 
+    /**
+     * Directly set the target angle (e.g., from hand position mapping).
+     */
     public void setTargetAngle(float angle) {
         targetAngle = angle;
     }
