@@ -1,9 +1,9 @@
 package com.ns.dev.jdkhandlookingdeep;
 
 import android.content.Context;
-import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.util.Log;
+
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -20,7 +20,6 @@ import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.environment.PointLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.util.HashMap;
@@ -56,8 +55,6 @@ public class SpatialRenderer implements ApplicationListener {
     private boolean mediaLoaded = false;
     private String currentMediaPath = null;
     private ExoPlayer exoPlayer;
-    private SurfaceTexture videoSurfaceTexture;
-    private Texture videoTexture;                // LibGDX texture from SurfaceTexture
     private boolean isPlaying = false;
 
     // Hand tracking & gestures
@@ -128,9 +125,8 @@ public class SpatialRenderer implements ApplicationListener {
             @Override
             public void onPlaybackStateChanged(int playbackState) {
                 if (playbackState == Player.STATE_READY) {
-                    // Video will start playing; we'll handle texture update in render()
+                    // Video will start playing
                 } else if (playbackState == Player.STATE_ENDED) {
-                    // Loop or stop? We'll just stop for now.
                     isPlaying = false;
                 }
             }
@@ -145,14 +141,14 @@ public class SpatialRenderer implements ApplicationListener {
         ModelBuilder builder = new ModelBuilder();
         buttonModels = new HashMap<>();
 
+        // Glass material with transparency and specular highlights
         Material glassMaterial = new Material(
                 ColorAttribute.createDiffuse(1, 1, 1, 0.6f),
                 ColorAttribute.createSpecular(1, 1, 1, 1f),
-                new BlendingAttribute(true),                      // enable blending for transparency
-                FloatAttribute.createAlphaTest(0.1f)              // discard fragments with alpha < 0.1
+                new BlendingAttribute()               // enables default blending (SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
         );
 
-        // Define positions for four buttons (play/pause, next, volume up, volume down)
+        // Button positions
         Vector3[] positions = {
                 new Vector3(-1.5f, 1.2f, 1.0f), // Play/Pause
                 new Vector3(0f, 1.2f, 1.0f),    // Next
@@ -180,9 +176,8 @@ public class SpatialRenderer implements ApplicationListener {
         Material discMaterial = new Material(
                 ColorAttribute.createDiffuse(0.1f, 0.1f, 0.1f, 1),
                 ColorAttribute.createSpecular(0.5f, 0.5f, 0.5f, 1),
-                FloatAttribute.createShininess(32f)
+                new FloatAttribute(FloatAttribute.Shininess, 32f)   // alternative to createShininess
         );
-        // Main disc: cylinder
         Model discModel = builder.createCylinder(1.6f, 0.05f, 1.6f, 32, discMaterial,
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
         vinylRecord = new ModelInstance(discModel);
@@ -190,8 +185,7 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     private void createCurvedScreen() {
-        // For now, create a simple flat screen with a placeholder texture.
-        // Later we can replace with a curved mesh.
+        // Simple flat screen with placeholder texture
         Texture placeholder = new Texture(Gdx.files.internal("media_placeholder.png"));
         Material screenMaterial = new Material(
                 TextureAttribute.createDiffuse(placeholder),
@@ -211,12 +205,10 @@ public class SpatialRenderer implements ApplicationListener {
         } else {
             currentMediaModel = curvedScreen;
         }
-        // Update textures if needed (e.g., show video frame)
     }
 
-    public void setMediaList(List<MediaItem> items) {
+    public void setMediaList(List<com.ns.dev.jdkhandlookingdeep.MediaItem> items) {
         carousel.setItems(items);
-        // Optionally select first item or show carousel
     }
 
     public void setOnCameraReadyCallback(CameraReadyCallback callback) {
@@ -249,8 +241,7 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     public void mediaNext() {
-        // For carousel selection: rotate to next item and play
-        // This is a placeholder – implement according to your UI logic
+        // Placeholder: implement carousel selection logic
     }
 
     public void mediaPrevious() {
@@ -272,16 +263,11 @@ public class SpatialRenderer implements ApplicationListener {
         exoPlayer.setPlayWhenReady(true);
         isPlaying = true;
 
-        // Determine if audio or video based on MIME type? Here we assume video.
-        // For audio, we would keep the vinyl spinning, not the screen.
-        // For simplicity, we'll set mode based on file extension.
+        // Simple mode switch based on file extension
         if (filePath.toLowerCase().endsWith(".mp4")) {
             setMode(false); // video mode
-            // Set up video texture: we need to get the SurfaceTexture from ExoPlayer.
-            // For that we'd need to create a TextureView or SurfaceView and extract the SurfaceTexture.
-            // This is complex; we'll leave it as a placeholder.
         } else {
-            setMode(true); // audio mode
+            setMode(true);  // audio mode
         }
     }
 
@@ -289,37 +275,31 @@ public class SpatialRenderer implements ApplicationListener {
     public void render() {
         ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
 
-        // Update carousel rotation based on hand position (via GestureController)
-        // The carousel is updated inside its own update() method, which we call with delta.
+        // Update carousel rotation
         carousel.update(Gdx.graphics.getDeltaTime());
 
         // Update vinyl rotation in audio mode
         if (isAudioMode && mediaLoaded) {
-            rotationAngle += Gdx.graphics.getDeltaTime() * 60; // speed in deg/sec
+            rotationAngle += Gdx.graphics.getDeltaTime() * 60; // degrees per second
             vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
         }
 
         // Render all models
         modelBatch.begin(camera);
-        // Render carousel (if visible)
         carousel.render();
-        // Render glass buttons
         for (ModelInstance instance : buttonModels.values()) {
             modelBatch.render(instance, environment);
         }
-        // Render active media model (vinyl or screen)
         if (currentMediaModel != null) {
             modelBatch.render(currentMediaModel, environment);
         }
         modelBatch.end();
 
-        // Update focus light position (if gestureController provides hand position)
-        // For now, we'll simulate with mouse (you can later replace with real hand position)
+        // Simulate hand tracking for light (replace with real hand position later)
         simulateHandTracking();
     }
 
     private void simulateHandTracking() {
-        // Placeholder: move light with mouse
         float mouseX = Gdx.input.getX();
         float mouseY = Gdx.input.getY();
         float x = (mouseX / Gdx.graphics.getWidth() - 0.5f) * 4;
