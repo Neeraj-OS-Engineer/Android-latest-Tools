@@ -3,19 +3,23 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.ns.dev.jdkhandlookingdeep">
 
-    <!-- Permissions -->
+    <!-- Permissions required by the app -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- WRITE_EXTERNAL_STORAGE is only needed for Android 9 and below -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" /> <!-- For Android 10+ use scoped storage, but needed for legacy -->
+        android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Required for foreground service (MediaScanService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <!-- Hardware features -->
+    <!-- Hardware features used by the app -->
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
-    <uses-feature android:glEsVersion="0x00020000" android:required="true" /> <!-- OpenGL ES 2.0+ -->
+    <!-- OpenGL ES 2.0 is required for LibGDX -->
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -24,9 +28,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
+        android:hardwareAccelerated="true"
         tools:targetApi="31">
 
-        <!-- Main Activity (example) -->
+        <!-- Main Activity: starts LibGDX and hand tracking -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -38,16 +43,11 @@
             </intent-filter>
         </activity>
 
-        <!-- LibGDX Android Application class (if you use a dedicated LibGDX activity) -->
-        <!-- Typically your LibGDX activity extends AndroidApplication and is declared here -->
-        <!-- Example:
-        <activity
-            android:name=".MyGdxActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:screenOrientation="landscape" />
-        -->
-
-        <!-- MediaPipe requires the camera activity and pipeline; no extra manifest entries needed -->
+        <!-- Background service that scans media files -->
+        <service
+            android:name=".MediaScanService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>
