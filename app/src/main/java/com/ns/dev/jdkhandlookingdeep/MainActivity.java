@@ -73,10 +73,8 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     }
 
     private void initApp() {
-        // Start media scanning service
         startMediaScanService();
 
-        // Configure LibGDX
         AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
         config.useImmersiveMode = true;
         config.useAccelerometer = false;
@@ -85,7 +83,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
         spatialRenderer = new SpatialRenderer(this);
         initialize(spatialRenderer, config);
 
-        // Setup gesture controller when camera is ready
         spatialRenderer.setOnCameraReadyCallback(camera -> {
             gestureController = new GestureController(camera, new GestureController.GestureListener() {
                 @Override
@@ -127,7 +124,9 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
             while (!mediaFile.exists()) {
                 try { Thread.sleep(500); } catch (InterruptedException e) { break; }
             }
-            List<MediaItem> items = MediaItem.loadFromFile(mediaFile);
+            // Use fully qualified name to avoid conflict with ExoPlayer's MediaItem
+            List<com.ns.dev.jdkhandlookingdeep.MediaItem> items =
+                    com.ns.dev.jdkhandlookingdeep.MediaItem.loadFromFile(mediaFile);
             if (items != null && !items.isEmpty()) {
                 runOnUiThread(() -> spatialRenderer.setMediaList(items));
             } else {
