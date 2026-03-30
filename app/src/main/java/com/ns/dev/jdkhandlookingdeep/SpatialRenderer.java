@@ -20,6 +20,7 @@ import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.environment.PointLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.math.Vector3;   // <-- ADDED MISSING IMPORT
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.util.HashMap;
@@ -176,7 +177,7 @@ public class SpatialRenderer implements ApplicationListener {
         Material discMaterial = new Material(
                 ColorAttribute.createDiffuse(0.1f, 0.1f, 0.1f, 1),
                 ColorAttribute.createSpecular(0.5f, 0.5f, 0.5f, 1),
-                new FloatAttribute(FloatAttribute.Shininess, 32f)   // alternative to createShininess
+                new FloatAttribute(FloatAttribute.Shininess, 32f)
         );
         Model discModel = builder.createCylinder(1.6f, 0.05f, 1.6f, 32, discMaterial,
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
