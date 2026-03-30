@@ -29,26 +29,30 @@ jobs:
         with:
           log-accepted-android-sdk-licenses: true
 
-      # SABSE IMPORTANT STEP: Saare licenses ko automatic 'yes' bolna
+      # Automatic License Acceptance (Sabse zaruri step)
       - name: Accept Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Install NDK & Platforms
+      # Specific NDK version install karna jo aapne gradle.properties mein di hai
+      - name: Install NDK 25.2.9519653
         run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "ndk;25.2.9519653"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653"
 
+      # FIX: Execute permission for gradlew script
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # Build Command with Memory Optimization
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
         env:
           JAVA_OPTS: "-Xmx3072m"
 
+      # Generate Artifact (Downloadable APK)
       - name: Upload APK Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: SpatialPlayer-Debug-APK
+          name: Spatial-Player-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
