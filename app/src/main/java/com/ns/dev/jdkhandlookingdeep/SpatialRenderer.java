@@ -24,6 +24,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.util.HashMap;
+import java.util.List;      // <-- ADDED MISSING IMPORT
 import java.util.Map;
 
 public class SpatialRenderer implements ApplicationListener {
@@ -58,11 +59,10 @@ public class SpatialRenderer implements ApplicationListener {
 
     @Override
     public void create() {
-        // Portrait camera: width smaller than height
         float screenWidth = Gdx.graphics.getWidth();
         float screenHeight = Gdx.graphics.getHeight();
         camera = new PerspectiveCamera(67, screenWidth, screenHeight);
-        camera.position.set(0, 1.5f, 3.5f);   // moved slightly back for portrait
+        camera.position.set(0, 1.5f, 3.5f);
         camera.lookAt(0, 1, 0);
         camera.near = 0.1f;
         camera.far = 100f;
@@ -114,12 +114,11 @@ public class SpatialRenderer implements ApplicationListener {
                 ColorAttribute.createSpecular(1, 1, 1, 1f),
                 new BlendingAttribute()
         );
-        // Adjusted positions for portrait (shifted down slightly)
         Vector3[] positions = {
-                new Vector3(-1.2f, 0.8f, 1.2f),  // Play/Pause
-                new Vector3(0f, 0.8f, 1.2f),     // Next
-                new Vector3(1.2f, 0.8f, 1.2f),   // Volume Up
-                new Vector3(1.2f, 0.2f, 1.2f)    // Volume Down
+                new Vector3(-1.2f, 0.8f, 1.2f),
+                new Vector3(0f, 0.8f, 1.2f),
+                new Vector3(1.2f, 0.8f, 1.2f),
+                new Vector3(1.2f, 0.2f, 1.2f)
         };
         GestureController.ButtonType[] types = {
                 GestureController.ButtonType.PLAY_PAUSE,
@@ -146,7 +145,7 @@ public class SpatialRenderer implements ApplicationListener {
         Model discModel = builder.createCylinder(1.4f, 0.05f, 1.4f, 32, discMaterial,
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
         vinylRecord = new ModelInstance(discModel);
-        vinylRecord.transform.setTranslation(0, 0.2f, -1.5f); // lower position for portrait
+        vinylRecord.transform.setTranslation(0, 0.2f, -1.5f);
     }
 
     private void createCurvedScreen() {
@@ -156,7 +155,6 @@ public class SpatialRenderer implements ApplicationListener {
                 ColorAttribute.createSpecular(0.8f, 0.8f, 0.8f, 1)
         );
         ModelBuilder builder = new ModelBuilder();
-        // Smaller screen for portrait
         Model screenModel = builder.createBox(2.5f, 1.5f, 0.05f, screenMaterial,
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates);
         curvedScreen = new ModelInstance(screenModel);
