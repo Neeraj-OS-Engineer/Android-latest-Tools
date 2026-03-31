@@ -66,7 +66,7 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
             if (allGranted) {
                 initApp();
             } else {
-                Toast.makeText(this, "Permissions are required to run the app", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Permissions required", Toast.LENGTH_LONG).show();
                 finish();
             }
         }
@@ -124,7 +124,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
             while (!mediaFile.exists()) {
                 try { Thread.sleep(500); } catch (InterruptedException e) { break; }
             }
-            // Use fully qualified name to avoid conflict with ExoPlayer's MediaItem
             List<com.ns.dev.jdkhandlookingdeep.MediaItem> items =
                     com.ns.dev.jdkhandlookingdeep.MediaItem.loadFromFile(mediaFile);
             if (items != null && !items.isEmpty()) {
