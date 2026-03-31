@@ -3,7 +3,6 @@ package com.ns.dev.jdkhandlookingdeep;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
-import android.graphics.Matrix;
 import android.media.Image;
 import android.os.Handler;
 import android.os.Looper;
@@ -49,20 +48,19 @@ public class HandLandmarkerHelper {
             HandLandmarkerOptions options = HandLandmarkerOptions.builder()
                     .setBaseOptions(baseOptions)
                     .setRunningMode(RunningMode.LIVE_STREAM)
-                    // FIX: Ab ye error nahi dega kyunki onResult method update kar diya gaya hai
-                    .setResultListener(this::onResult)
+                    .setResultListener(this::onResult)   // Only 2 parameters: result, mpImage
                     .setErrorListener(this::onError)
                     .setNumHands(2)
                     .build();
 
             handLandmarker = HandLandmarker.createFromOptions(context, options);
-            Log.d(TAG, "HandLandmarker initialized successfully");
+            Log.d(TAG, "HandLandmarker initialized");
         } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize HandLandmarker", e);
+            Log.e(TAG, "Init failed", e);
         }
     }
 
-    // FIX: MediaPipe 0.10.14 mein sirf 2 parameters hote hain
+    // CRITICAL: Only 2 parameters – matches MediaPipe 0.10.14
     private void onResult(HandLandmarkerResult result, MPImage mpImage) {
         if (listener != null) {
             mainHandler.post(() -> listener.onHandLandmarks(result));
@@ -70,7 +68,7 @@ public class HandLandmarkerHelper {
     }
 
     private void onError(RuntimeException error) {
-        Log.e(TAG, "HandLandmarker error: " + error.getMessage());
+        Log.e(TAG, "Landmarker error", error);
     }
 
     public void processImageProxy(ImageProxy imageProxy) {
@@ -81,79 +79,77 @@ public class HandLandmarkerHelper {
 
         inferenceExecutor.execute(() -> {
             try {
-                Bitmap bitmap = convertImageProxyToBitmap(imageProxy);
+                Bitmap bitmap = convertYuv420888ToBitmap(imageProxy);
                 if (bitmap != null) {
                     MPImage mpImage = new BitmapImageBuilder(bitmap).build();
-                    // Nanoseconds to Milliseconds
                     long timestampMs = imageProxy.getImageInfo().getTimestamp() / 1_000_000;
-                    
-                    // detectAsync call karein
                     handLandmarker.detectAsync(mpImage, timestampMs);
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Detection failed", e);
+                Log.e(TAG, "Detection error", e);
             } finally {
-                // Hamesha close karein varna camera hang ho jayega
+                // Must close to prevent camera freeze
                 imageProxy.close();
             }
         });
     }
 
-    private Bitmap convertImageProxyToBitmap(ImageProxy imageProxy) {
+    /**
+     * Fast conversion from YUV_420_888 to RGB Bitmap.
+     * No rotation is applied – the image remains in its natural orientation
+     * (which is already correct for portrait).
+     */
+    private Bitmap convertYuv420888ToBitmap(ImageProxy imageProxy) {
         Image image = imageProxy.getImage();
         if (image == null) return null;
 
         int width = image.getWidth();
         int height = image.getHeight();
-        int format = image.getFormat();
 
-        Bitmap bitmap = null;
+        // Get YUV planes
+        Image.Plane[] planes = image.getPlanes();
+        ByteBuffer yBuffer = planes[0].getBuffer();
+        ByteBuffer uBuffer = planes[1].getBuffer();
+        ByteBuffer vBuffer = planes[2].getBuffer();
 
-        if (format == ImageFormat.YUV_420_888) {
-            try {
-                // Efficient YUV to Bitmap conversion can be complex, 
-                // Using a simplified version for this context
-                Image.Plane[] planes = image.getPlanes();
-                ByteBuffer yBuffer = planes[0].getBuffer();
-                ByteBuffer uBuffer = planes[1].getBuffer();
-                ByteBuffer vBuffer = planes[2].getBuffer();
+        int yRowStride = planes[0].getRowStride();
+        int uvRowStride = planes[1].getRowStride();
+        int uvPixelStride = planes[1].getPixelStride();
 
-                int ySize = yBuffer.remaining();
-                int uSize = uBuffer.remaining();
-                int vSize = vBuffer.remaining();
+        int[] rgb = new int[width * height];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // Y index
+                int yIndex = y * yRowStride + x;
+                int Y = yBuffer.get(yIndex) & 0xFF;
 
-                byte[] nv21 = new byte[ySize + uSize + vSize];
-                yBuffer.get(nv21, 0, ySize);
-                vBuffer.get(nv21, ySize, vSize);
-                uBuffer.get(nv21, ySize + vSize, uSize);
+                // UV index (simple subsampling)
+                int uvX = x / 2;
+                int uvY = y / 2;
+                int uvIndex = uvY * uvRowStride + uvX * uvPixelStride;
+                int U = uBuffer.get(uvIndex) & 0xFF;
+                int V = vBuffer.get(uvIndex) & 0xFF;
 
-                android.graphics.YuvImage yuvImage = new android.graphics.YuvImage(nv21, ImageFormat.NV21, width, height, null);
-                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-                yuvImage.compressToJpeg(new android.graphics.Rect(0, 0, width, height), 100, out);
-                byte[] imageBytes = out.toByteArray();
-                bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
-            } catch (Exception e) {
-                Log.e(TAG, "YUV Conversion error", e);
+                // YUV to RGB (BT.601)
+                int R = (int) (Y + 1.402 * (V - 128));
+                int G = (int) (Y - 0.344 * (U - 128) - 0.714 * (V - 128));
+                int B = (int) (Y + 1.772 * (U - 128));
+
+                R = Math.max(0, Math.min(255, R));
+                G = Math.max(0, Math.min(255, G));
+                B = Math.max(0, Math.min(255, B));
+
+                rgb[y * width + x] = (0xFF << 24) | (R << 16) | (G << 8) | B;
             }
         }
 
-        if (bitmap == null) return null;
-
-        // Handle Rotation
-        int rotationDegrees = imageProxy.getImageInfo().getRotationDegrees();
-        if (rotationDegrees != 0) {
-            Matrix matrix = new Matrix();
-            matrix.postRotate(rotationDegrees);
-            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-        }
-
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        bitmap.setPixels(rgb, 0, width, 0, 0, width, height);
         return bitmap;
     }
 
     public void close() {
-        if (handLandmarker != null) {
-            handLandmarker.close();
-        }
+        if (handLandmarker != null) handLandmarker.close();
         inferenceExecutor.shutdown();
     }
 }
