@@ -20,51 +20,33 @@ import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.environment.PointLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.math.Vector3;   // <-- ADDED MISSING IMPORT
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-/**
- * Main LibGDX renderer. Creates the 3D environment, glass‑morphic buttons,
- * carousel, and video screen. Integrates with hand tracking and media playback.
- */
 public class SpatialRenderer implements ApplicationListener {
 
     private static final String TAG = "SpatialRenderer";
-
-    // 3D rendering
     private PerspectiveCamera camera;
     private ModelBatch modelBatch;
     private Environment environment;
-
-    // Models and instances
     private Map<GestureController.ButtonType, ModelInstance> buttonModels;
     private CarouselRenderer carousel;
     private ModelInstance curvedScreen;
-    private ModelInstance vinylRecord;          // for audio mode
-    private ModelInstance currentMediaModel;    // active model (vinyl or screen)
-
-    // Lighting
+    private ModelInstance vinylRecord;
+    private ModelInstance currentMediaModel;
     private PointLight focusLight;
-
-    // State
     private boolean isAudioMode = true;
-    private float rotationAngle = 0f;            // for vinyl spin
+    private float rotationAngle = 0f;
     private boolean mediaLoaded = false;
     private String currentMediaPath = null;
     private ExoPlayer exoPlayer;
     private boolean isPlaying = false;
-
-    // Hand tracking & gestures
+    private Context androidContext;
     private GestureController gestureController;
 
-    // Android context (for media loading)
-    private Context androidContext;
-
-    // Listener to receive camera once it's ready (for GestureController)
     public interface CameraReadyCallback {
         void onCameraReady(PerspectiveCamera camera);
     }
@@ -76,18 +58,18 @@ public class SpatialRenderer implements ApplicationListener {
 
     @Override
     public void create() {
-        // Camera setup
-        camera = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        camera.position.set(0, 1.5f, 3);
+        // Portrait camera: width smaller than height
+        float screenWidth = Gdx.graphics.getWidth();
+        float screenHeight = Gdx.graphics.getHeight();
+        camera = new PerspectiveCamera(67, screenWidth, screenHeight);
+        camera.position.set(0, 1.5f, 3.5f);   // moved slightly back for portrait
         camera.lookAt(0, 1, 0);
         camera.near = 0.1f;
         camera.far = 100f;
         camera.update();
 
-        // Notify any waiting callback (for GestureController)
         if (cameraReadyCallback != null) cameraReadyCallback.onCameraReady(camera);
 
-        // Model batch and environment
         modelBatch = new ModelBatch();
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.3f, 0.3f, 0.4f, 1f));
@@ -96,27 +78,17 @@ public class SpatialRenderer implements ApplicationListener {
         ambientLight.setDirection(-0.5f, -1f, -0.5f);
         environment.add(ambientLight);
 
-        // Focus light (will follow hand)
         focusLight = new PointLight();
         focusLight.setColor(1f, 0.8f, 0.6f, 1f);
         focusLight.setIntensity(1.5f);
         environment.add(focusLight);
 
-        // Create glass‑morphic buttons
         createGlassButtons();
-
-        // Create carousel
         carousel = new CarouselRenderer(camera);
-        carousel.setVisible(true); // will be shown when media list is set
-
-        // Create video screen and vinyl record
+        carousel.setVisible(true);
         createCurvedScreen();
         createVinylRecord();
-
-        // Start with audio mode (vinyl)
         setMode(true);
-
-        // Initialize ExoPlayer
         initExoPlayer();
     }
 
@@ -125,11 +97,7 @@ public class SpatialRenderer implements ApplicationListener {
         exoPlayer.addListener(new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int playbackState) {
-                if (playbackState == Player.STATE_READY) {
-                    // Video will start playing
-                } else if (playbackState == Player.STATE_ENDED) {
-                    isPlaying = false;
-                }
+                if (playbackState == Player.STATE_ENDED) isPlaying = false;
             }
             @Override
             public void onPlayerError(PlaybackException error) {
@@ -141,20 +109,17 @@ public class SpatialRenderer implements ApplicationListener {
     private void createGlassButtons() {
         ModelBuilder builder = new ModelBuilder();
         buttonModels = new HashMap<>();
-
-        // Glass material with transparency and specular highlights
         Material glassMaterial = new Material(
                 ColorAttribute.createDiffuse(1, 1, 1, 0.6f),
                 ColorAttribute.createSpecular(1, 1, 1, 1f),
-                new BlendingAttribute()               // enables default blending (SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
+                new BlendingAttribute()
         );
-
-        // Button positions
+        // Adjusted positions for portrait (shifted down slightly)
         Vector3[] positions = {
-                new Vector3(-1.5f, 1.2f, 1.0f), // Play/Pause
-                new Vector3(0f, 1.2f, 1.0f),    // Next
-                new Vector3(1.5f, 1.2f, 1.0f),  // Volume Up
-                new Vector3(1.5f, 0.6f, 1.0f)   // Volume Down
+                new Vector3(-1.2f, 0.8f, 1.2f),  // Play/Pause
+                new Vector3(0f, 0.8f, 1.2f),     // Next
+                new Vector3(1.2f, 0.8f, 1.2f),   // Volume Up
+                new Vector3(1.2f, 0.2f, 1.2f)    // Volume Down
         };
         GestureController.ButtonType[] types = {
                 GestureController.ButtonType.PLAY_PAUSE,
@@ -162,7 +127,6 @@ public class SpatialRenderer implements ApplicationListener {
                 GestureController.ButtonType.VOLUME_UP,
                 GestureController.ButtonType.VOLUME_DOWN
         };
-
         for (int i = 0; i < types.length; i++) {
             Model model = builder.createBox(0.6f, 0.6f, 0.2f, glassMaterial,
                     VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
@@ -179,33 +143,29 @@ public class SpatialRenderer implements ApplicationListener {
                 ColorAttribute.createSpecular(0.5f, 0.5f, 0.5f, 1),
                 new FloatAttribute(FloatAttribute.Shininess, 32f)
         );
-        Model discModel = builder.createCylinder(1.6f, 0.05f, 1.6f, 32, discMaterial,
+        Model discModel = builder.createCylinder(1.4f, 0.05f, 1.4f, 32, discMaterial,
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
         vinylRecord = new ModelInstance(discModel);
-        vinylRecord.transform.setTranslation(0, 0.5f, -1.2f);
+        vinylRecord.transform.setTranslation(0, 0.2f, -1.5f); // lower position for portrait
     }
 
     private void createCurvedScreen() {
-        // Simple flat screen with placeholder texture
         Texture placeholder = new Texture(Gdx.files.internal("media_placeholder.png"));
         Material screenMaterial = new Material(
                 TextureAttribute.createDiffuse(placeholder),
                 ColorAttribute.createSpecular(0.8f, 0.8f, 0.8f, 1)
         );
         ModelBuilder builder = new ModelBuilder();
-        Model screenModel = builder.createBox(3.0f, 1.8f, 0.05f, screenMaterial,
+        // Smaller screen for portrait
+        Model screenModel = builder.createBox(2.5f, 1.5f, 0.05f, screenMaterial,
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates);
         curvedScreen = new ModelInstance(screenModel);
-        curvedScreen.transform.setTranslation(0, 0.8f, -2.0f);
+        curvedScreen.transform.setTranslation(0, 0.5f, -1.8f);
     }
 
     public void setMode(boolean audio) {
         isAudioMode = audio;
-        if (audio) {
-            currentMediaModel = vinylRecord;
-        } else {
-            currentMediaModel = curvedScreen;
-        }
+        currentMediaModel = audio ? vinylRecord : curvedScreen;
     }
 
     public void setMediaList(List<com.ns.dev.jdkhandlookingdeep.MediaItem> items) {
@@ -226,34 +186,11 @@ public class SpatialRenderer implements ApplicationListener {
         if (buttonModels != null) controller.setButtonModels(buttonModels);
     }
 
-    // Media control methods called by GestureListener
-    public void mediaPlay() {
-        if (exoPlayer != null && currentMediaPath != null) {
-            exoPlayer.play();
-            isPlaying = true;
-        }
-    }
-
-    public void mediaPause() {
-        if (exoPlayer != null) {
-            exoPlayer.pause();
-            isPlaying = false;
-        }
-    }
-
-    public void mediaNext() {
-        // Placeholder: implement carousel selection logic
-    }
-
-    public void mediaPrevious() {
-        // Placeholder
-    }
-
-    public void setCarouselTargetAngle(float angle) {
-        if (carousel != null) {
-            carousel.setTargetAngle(angle);
-        }
-    }
+    public void mediaPlay() { if (exoPlayer != null && currentMediaPath != null) exoPlayer.play(); }
+    public void mediaPause() { if (exoPlayer != null) exoPlayer.pause(); }
+    public void mediaNext() { }
+    public void mediaPrevious() { }
+    public void setCarouselTargetAngle(float angle) { if (carousel != null) carousel.setTargetAngle(angle); }
 
     public void loadMedia(String filePath) {
         currentMediaPath = filePath;
@@ -263,73 +200,36 @@ public class SpatialRenderer implements ApplicationListener {
         exoPlayer.prepare();
         exoPlayer.setPlayWhenReady(true);
         isPlaying = true;
-
-        // Simple mode switch based on file extension
-        if (filePath.toLowerCase().endsWith(".mp4")) {
-            setMode(false); // video mode
-        } else {
-            setMode(true);  // audio mode
-        }
+        setMode(!filePath.toLowerCase().endsWith(".mp4"));
     }
 
     @Override
     public void render() {
         ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
-
-        // Update carousel rotation
         carousel.update(Gdx.graphics.getDeltaTime());
-
-        // Update vinyl rotation in audio mode
         if (isAudioMode && mediaLoaded) {
-            rotationAngle += Gdx.graphics.getDeltaTime() * 60; // degrees per second
+            rotationAngle += Gdx.graphics.getDeltaTime() * 60;
             vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
         }
-
-        // Render all models
         modelBatch.begin(camera);
         carousel.render();
-        for (ModelInstance instance : buttonModels.values()) {
-            modelBatch.render(instance, environment);
-        }
-        if (currentMediaModel != null) {
-            modelBatch.render(currentMediaModel, environment);
-        }
+        for (ModelInstance instance : buttonModels.values()) modelBatch.render(instance, environment);
+        if (currentMediaModel != null) modelBatch.render(currentMediaModel, environment);
         modelBatch.end();
-
-        // Simulate hand tracking for light (replace with real hand position later)
         simulateHandTracking();
     }
 
     private void simulateHandTracking() {
         float mouseX = Gdx.input.getX();
         float mouseY = Gdx.input.getY();
-        float x = (mouseX / Gdx.graphics.getWidth() - 0.5f) * 4;
-        float y = (1 - mouseY / Gdx.graphics.getHeight() - 0.5f) * 3 + 1;
-        float z = 1.5f;
+        float x = (mouseX / Gdx.graphics.getWidth() - 0.5f) * 3.5f;
+        float y = (1 - mouseY / Gdx.graphics.getHeight() - 0.5f) * 2.5f + 0.8f;
+        float z = 1.2f;
         focusLight.setPosition(x, y, z);
     }
 
-    @Override
-    public void resize(int width, int height) {
-        camera.viewportWidth = width;
-        camera.viewportHeight = height;
-        camera.update();
-    }
-
-    @Override
-    public void dispose() {
-        modelBatch.dispose();
-        carousel.dispose();
-        for (ModelInstance instance : buttonModels.values()) {
-            instance.model.dispose();
-        }
-        if (vinylRecord != null) vinylRecord.model.dispose();
-        if (curvedScreen != null) curvedScreen.model.dispose();
-        if (exoPlayer != null) exoPlayer.release();
-    }
-
-    @Override
-    public void pause() { }
-    @Override
-    public void resume() { }
+    @Override public void resize(int width, int height) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); }
+    @Override public void dispose() { modelBatch.dispose(); carousel.dispose(); for (ModelInstance i : buttonModels.values()) i.model.dispose(); if (vinylRecord != null) vinylRecord.model.dispose(); if (curvedScreen != null) curvedScreen.model.dispose(); if (exoPlayer != null) exoPlayer.release(); }
+    @Override public void pause() { }
+    @Override public void resume() { }
 }
