@@ -58,6 +58,11 @@ public class SpatialRenderer implements ApplicationListener {
     private boolean isPlaying = false;
     private Context androidContext;
     private GestureController gestureController;
+    // Ye variables class ke andar, methods ke bahar hone chahiye
+    private com.badlogic.gdx.graphics.Texture videoTexture;
+    private android.graphics.SurfaceTexture surfaceTexture;
+    private androidx.media3.exoplayer.ExoPlayer exoPlayer; // Agar ye bhi error de raha ho
+
 
     // Thread‑safe hand data queue
     private final ConcurrentLinkedQueue<HandLandmarkerResult> handResultQueue = new ConcurrentLinkedQueue<>();
