@@ -24,7 +24,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.util.HashMap;
-import java.util.List;      // <-- ADDED MISSING IMPORT
+import java.util.List;
 import java.util.Map;
 
 public class SpatialRenderer implements ApplicationListener {
@@ -59,37 +59,43 @@ public class SpatialRenderer implements ApplicationListener {
 
     @Override
     public void create() {
-        float screenWidth = Gdx.graphics.getWidth();
-        float screenHeight = Gdx.graphics.getHeight();
-        camera = new PerspectiveCamera(67, screenWidth, screenHeight);
-        camera.position.set(0, 1.5f, 3.5f);
-        camera.lookAt(0, 1, 0);
-        camera.near = 0.1f;
-        camera.far = 100f;
-        camera.update();
+        try {
+            // Camera setup
+            float screenWidth = Gdx.graphics.getWidth();
+            float screenHeight = Gdx.graphics.getHeight();
+            camera = new PerspectiveCamera(67, screenWidth, screenHeight);
+            camera.position.set(0, 1.5f, 3.5f);
+            camera.lookAt(0, 1, 0);
+            camera.near = 0.1f;
+            camera.far = 100f;
+            camera.update();
 
-        if (cameraReadyCallback != null) cameraReadyCallback.onCameraReady(camera);
+            if (cameraReadyCallback != null) cameraReadyCallback.onCameraReady(camera);
 
-        modelBatch = new ModelBatch();
-        environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.3f, 0.3f, 0.4f, 1f));
-        DirectionalLight ambientLight = new DirectionalLight();
-        ambientLight.setColor(0.5f, 0.5f, 0.6f, 1f);
-        ambientLight.setDirection(-0.5f, -1f, -0.5f);
-        environment.add(ambientLight);
+            modelBatch = new ModelBatch();
+            environment = new Environment();
+            environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.3f, 0.3f, 0.4f, 1f));
+            DirectionalLight ambientLight = new DirectionalLight();
+            ambientLight.setColor(0.5f, 0.5f, 0.6f, 1f);
+            ambientLight.setDirection(-0.5f, -1f, -0.5f);
+            environment.add(ambientLight);
 
-        focusLight = new PointLight();
-        focusLight.setColor(1f, 0.8f, 0.6f, 1f);
-        focusLight.setIntensity(1.5f);
-        environment.add(focusLight);
+            focusLight = new PointLight();
+            focusLight.setColor(1f, 0.8f, 0.6f, 1f);
+            focusLight.setIntensity(1.5f);
+            environment.add(focusLight);
 
-        createGlassButtons();
-        carousel = new CarouselRenderer(camera);
-        carousel.setVisible(true);
-        createCurvedScreen();
-        createVinylRecord();
-        setMode(true);
-        initExoPlayer();
+            createGlassButtons();
+            carousel = new CarouselRenderer(camera);
+            carousel.setVisible(true);
+            createCurvedScreen();
+            createVinylRecord();
+            setMode(true);
+            initExoPlayer();
+        } catch (Exception e) {
+            Log.e(TAG, "Fatal error in create()", e);
+            Gdx.app.exit(); // Exit gracefully
+        }
     }
 
     private void initExoPlayer() {
@@ -149,7 +155,21 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     private void createCurvedScreen() {
-        Texture placeholder = new Texture(Gdx.files.internal("media_placeholder.png"));
+        Texture placeholder;
+        try {
+            placeholder = new Texture(Gdx.files.internal("media_placeholder.png"));
+        } catch (Exception e) {
+            Log.w(TAG, "Placeholder texture missing, generating fallback", e);
+            // Generate a simple checkered texture
+            Pixmap pixmap = new Pixmap(512, 512, Pixmap.Format.RGBA8888);
+            pixmap.setColor(0.2f, 0.2f, 0.2f, 1f);
+            pixmap.fill();
+            pixmap.setColor(0.8f, 0.8f, 0.8f, 1f);
+            pixmap.drawLine(0, 256, 512, 256);
+            pixmap.drawLine(256, 0, 256, 512);
+            placeholder = new Texture(pixmap);
+            pixmap.dispose();
+        }
         Material screenMaterial = new Material(
                 TextureAttribute.createDiffuse(placeholder),
                 ColorAttribute.createSpecular(0.8f, 0.8f, 0.8f, 1)
@@ -203,18 +223,22 @@ public class SpatialRenderer implements ApplicationListener {
 
     @Override
     public void render() {
-        ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
-        carousel.update(Gdx.graphics.getDeltaTime());
-        if (isAudioMode && mediaLoaded) {
-            rotationAngle += Gdx.graphics.getDeltaTime() * 60;
-            vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
+        try {
+            ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
+            carousel.update(Gdx.graphics.getDeltaTime());
+            if (isAudioMode && mediaLoaded) {
+                rotationAngle += Gdx.graphics.getDeltaTime() * 60;
+                vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
+            }
+            modelBatch.begin(camera);
+            carousel.render();
+            for (ModelInstance instance : buttonModels.values()) modelBatch.render(instance, environment);
+            if (currentMediaModel != null) modelBatch.render(currentMediaModel, environment);
+            modelBatch.end();
+            simulateHandTracking();
+        } catch (Exception e) {
+            Log.e(TAG, "Render error", e);
         }
-        modelBatch.begin(camera);
-        carousel.render();
-        for (ModelInstance instance : buttonModels.values()) modelBatch.render(instance, environment);
-        if (currentMediaModel != null) modelBatch.render(currentMediaModel, environment);
-        modelBatch.end();
-        simulateHandTracking();
     }
 
     private void simulateHandTracking() {
