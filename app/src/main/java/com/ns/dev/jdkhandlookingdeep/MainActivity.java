@@ -19,6 +19,8 @@ import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import android.util.Log;
+
 
 public class MainActivity extends AndroidApplication implements CameraXHelper.HandLandmarkListener {
 
