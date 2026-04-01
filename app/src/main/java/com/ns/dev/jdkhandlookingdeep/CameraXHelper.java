@@ -10,6 +10,7 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.core.CameraInfoUnavailableException;   // <- Add this import
 import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,10 +40,6 @@ public class CameraXHelper {
         handLandmarkerHelper = new HandLandmarkerHelper(context, listener);
     }
 
-    /**
-     * Start the camera and begin analyzing frames.
-     * Call this from onResume() or after permissions are granted.
-     */
     public void startCamera() {
         if (isCameraStarted) {
             Log.d(TAG, "Camera already started");
@@ -59,7 +56,6 @@ public class CameraXHelper {
                 Log.d(TAG, "Camera started successfully");
             } catch (Exception e) {
                 Log.e(TAG, "Camera binding failed", e);
-                // Show a user-friendly message
                 if (context instanceof android.app.Activity) {
                     ((android.app.Activity) context).runOnUiThread(() ->
                             Toast.makeText(context, "Failed to start camera: " + e.getMessage(),
@@ -69,7 +65,7 @@ public class CameraXHelper {
         }, ContextCompat.getMainExecutor(context));
     }
 
-    private void bindCameraUseCases() {
+    private void bindCameraUseCases() throws CameraInfoUnavailableException {
         if (cameraProvider == null) {
             Log.e(TAG, "Camera provider is null");
             return;
@@ -80,7 +76,7 @@ public class CameraXHelper {
                 .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                 .build();
 
-        // Check if front camera exists
+        // Check if front camera exists – this can throw CameraInfoUnavailableException
         if (!cameraProvider.hasCamera(cameraSelector)) {
             Log.w(TAG, "Front camera not available, using back camera");
             cameraSelector = new CameraSelector.Builder()
@@ -111,18 +107,10 @@ public class CameraXHelper {
         Log.d(TAG, "Camera bound: " + camera.getCameraInfo().getLensFacing());
     }
 
-    /**
-     * Process each image frame from CameraX.
-     */
     private void analyzeImage(ImageProxy image) {
-        // Delegate to HandLandmarkerHelper for actual processing
         handLandmarkerHelper.processImageProxy(image);
     }
 
-    /**
-     * Stop the camera and release resources.
-     * Call this from onPause().
-     */
     public void stopCamera() {
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
