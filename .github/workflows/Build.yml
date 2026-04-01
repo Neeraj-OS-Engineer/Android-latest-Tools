@@ -44,10 +44,10 @@ jobs:
         run: chmod +x gradlew
 
       # Build Command with Memory Optimization
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
-        env:
-          JAVA_OPTS: "-Xmx3072m"
+    #  - name: Build Debug APK
+      # run: ./gradlew assembleDebug --stacktrace --no-daemon
+      #  env:
+       #   JAVA_OPTS: "-Xmx3072m"
 
       # Generate Artifact (Downloadable APK)
       - name: Upload APK Artifact
