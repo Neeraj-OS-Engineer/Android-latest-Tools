@@ -4,13 +4,13 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Container for LibGDX GLSurfaceView (added programmatically) -->
+    <!-- Container for LibGDX view -->
     <FrameLayout
         android:id="@+id/gdx_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Optional debug overlay (hidden by default) -->
+    <!-- Debug overlay -->
     <TextView
         android:id="@+id/debug_text"
         android:layout_width="wrap_content"
