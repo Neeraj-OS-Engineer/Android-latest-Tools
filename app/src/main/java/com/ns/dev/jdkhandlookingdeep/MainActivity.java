@@ -14,8 +14,6 @@ import androidx.core.content.ContextCompat;
 
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
-import com.badlogic.gdx.backends.android.AndroidGraphics;
-import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 
 import java.io.File;
@@ -37,6 +35,7 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     private CameraXHelper cameraHelper;
     private TextView debugText;
     private FrameLayout gdxContainer;
+    private final AtomicBoolean cameraStarted = new AtomicBoolean(false);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,57 +83,55 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     }
 
     private void initApp() {
-        startMediaScanService();
+        try {
+            startMediaScanService();
 
-        AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
-        config.useImmersiveMode = true;
-        config.useAccelerometer = false;
-        config.useCompass = false;
+            AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
+            config.useImmersiveMode = true;
+            config.useAccelerometer = false;
+            config.useCompass = false;
 
-        // Create renderer
-        spatialRenderer = new SpatialRenderer(this);
+            spatialRenderer = new SpatialRenderer(this);
 
-        // Get the LibGDX view without replacing the content view
-        View gdxView = initializeForView(spatialRenderer, config);
+            // Embed LibGDX view without replacing content view
+            View gdxView = initializeForView(spatialRenderer, config);
+            gdxContainer.addView(gdxView);
+            debugText.bringToFront();
 
-        // Add it to our container
-        gdxContainer.addView(gdxView);
-        // Ensure debug text stays on top
-        debugText.bringToFront();
-
-        // Setup gesture controller after camera is ready (on GL thread)
-        spatialRenderer.setOnCameraReadyCallback(camera -> {
-            // GestureController will run on GL thread – safe
-            gestureController = new GestureController(camera, new GestureController.GestureListener() {
-                @Override
-                public void onPlay() { spatialRenderer.mediaPlay(); }
-                @Override
-                public void onPause() { spatialRenderer.mediaPause(); }
-                @Override
-                public void onNext() { spatialRenderer.mediaNext(); }
-                @Override
-                public void onPrevious() { spatialRenderer.mediaPrevious(); }
-                @Override
-                public void onButtonTouch(GestureController.ButtonType buttonType) {
-                    runOnUiThread(() -> {
-                        debugText.setText("Button: " + buttonType);
-                        debugText.setVisibility(View.VISIBLE);
-                    });
-                }
-                @Override
-                public void onHandXChange(float normalizedX) {
-                    spatialRenderer.setCarouselTargetAngle(normalizedX * 2 * (float) Math.PI);
-                }
+            // Setup gesture controller after camera is ready
+            spatialRenderer.setOnCameraReadyCallback(camera -> {
+                gestureController = new GestureController(camera, new GestureController.GestureListener() {
+                    @Override public void onPlay() { spatialRenderer.mediaPlay(); }
+                    @Override public void onPause() { spatialRenderer.mediaPause(); }
+                    @Override public void onNext() { spatialRenderer.mediaNext(); }
+                    @Override public void onPrevious() { spatialRenderer.mediaPrevious(); }
+                    @Override
+                    public void onButtonTouch(GestureController.ButtonType buttonType) {
+                        runOnUiThread(() -> {
+                            debugText.setText("Button: " + buttonType);
+                            debugText.setVisibility(View.VISIBLE);
+                        });
+                    }
+                    @Override
+                    public void onHandXChange(float normalizedX) {
+                        spatialRenderer.setCarouselTargetAngle(normalizedX * 2 * (float) Math.PI);
+                    }
+                });
+                spatialRenderer.setGestureController(gestureController);
             });
-            spatialRenderer.setGestureController(gestureController);
-        });
 
-        // Start camera (on main thread)
-        cameraHelper = new CameraXHelper(this, this);
-        cameraHelper.startCamera();
+            // Start camera – only after activity is resumed
+            if (cameraStarted.compareAndSet(false, true)) {
+                cameraHelper = new CameraXHelper(this, this);
+                cameraHelper.startCamera();
+            }
 
-        // Load media list in background
-        loadMediaList();
+            loadMediaList();
+        } catch (Exception e) {
+            Log.e(TAG, "initApp failed", e);
+            Toast.makeText(this, "Initialization error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            finish();
+        }
     }
 
     private void startMediaScanService() {
@@ -160,7 +157,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     @Override
     public void onHandLandmarks(HandLandmarkerResult result) {
         // Called on main thread from HandLandmarkerHelper
-        // Pass to GestureController (which is thread‑safe via its update method)
         if (gestureController != null) {
             gestureController.update(result);
         }
@@ -169,19 +165,26 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     @Override
     protected void onResume() {
         super.onResume();
-        if (cameraHelper != null) cameraHelper.startCamera();
+        if (cameraHelper != null && !cameraStarted.get()) {
+            cameraStarted.set(true);
+            cameraHelper.startCamera();
+        } else if (cameraHelper != null && cameraStarted.get()) {
+            // Already started, no action needed
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (cameraHelper != null) cameraHelper.stopCamera();
+        if (cameraHelper != null) {
+            cameraHelper.stopCamera();
+            cameraStarted.set(false);
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (cameraHelper != null) cameraHelper.stopCamera();
-        // LibGDX view will be disposed automatically via AndroidApplication
     }
 }
