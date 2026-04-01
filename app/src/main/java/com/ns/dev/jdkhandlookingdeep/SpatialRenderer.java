@@ -27,6 +27,10 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
+import java.util.concurrent.atomic.AtomicReference;
+
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
