@@ -2,107 +2,136 @@ package com.ns.dev.jdkhandlookingdeep;
 
 import android.content.Context;
 import android.util.Log;
+import android.widget.Toast;
+
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.content.ContextCompat;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
-import java.nio.ByteBuffer;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Helper class to initialize CameraX and pass frames to a MediaPipe HandLandmarker.
- */
 public class CameraXHelper {
 
     private static final String TAG = "CameraXHelper";
     private final Context context;
+    private final HandLandmarkListener listener;
     private ProcessCameraProvider cameraProvider;
     private ImageAnalysis imageAnalysis;
-    private HandLandmarkerHelper handLandmarkerHelper; // custom class that wraps MediaPipe
-
-    // Executor for image analysis (non-UI thread)
+    private HandLandmarkerHelper handLandmarkerHelper;
     private final ExecutorService cameraExecutor = Executors.newSingleThreadExecutor();
+    private boolean isCameraStarted = false;
 
     public interface HandLandmarkListener {
         void onHandLandmarks(HandLandmarkerResult result);
     }
 
-    private HandLandmarkListener listener;
-
     public CameraXHelper(Context context, HandLandmarkListener listener) {
         this.context = context;
         this.listener = listener;
-        // Initialize MediaPipe HandLandmarker (you need to implement HandLandmarkerHelper)
         handLandmarkerHelper = new HandLandmarkerHelper(context, listener);
     }
 
     /**
      * Start the camera and begin analyzing frames.
+     * Call this from onResume() or after permissions are granted.
      */
     public void startCamera() {
+        if (isCameraStarted) {
+            Log.d(TAG, "Camera already started");
+            return;
+        }
+
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
                 ProcessCameraProvider.getInstance(context);
         cameraProviderFuture.addListener(() -> {
             try {
                 cameraProvider = cameraProviderFuture.get();
                 bindCameraUseCases();
+                isCameraStarted = true;
+                Log.d(TAG, "Camera started successfully");
             } catch (Exception e) {
                 Log.e(TAG, "Camera binding failed", e);
+                // Show a user-friendly message
+                if (context instanceof android.app.Activity) {
+                    ((android.app.Activity) context).runOnUiThread(() ->
+                            Toast.makeText(context, "Failed to start camera: " + e.getMessage(),
+                                    Toast.LENGTH_LONG).show());
+                }
             }
         }, ContextCompat.getMainExecutor(context));
     }
 
     private void bindCameraUseCases() {
-        // Select front camera for hand tracking (or back camera if needed)
+        if (cameraProvider == null) {
+            Log.e(TAG, "Camera provider is null");
+            return;
+        }
+
+        // Try front camera first, then back camera if not available
         CameraSelector cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                 .build();
 
-        // Preview (optional) – can be added to a PreviewView if you want to show camera feed
+        // Check if front camera exists
+        if (!cameraProvider.hasCamera(cameraSelector)) {
+            Log.w(TAG, "Front camera not available, using back camera");
+            cameraSelector = new CameraSelector.Builder()
+                    .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                    .build();
+        }
+
+        // Preview (optional – we don't show it, but it's required to keep the camera alive)
         Preview preview = new Preview.Builder().build();
 
-        // ImageAnalysis: analyze frames at a fixed resolution
+        // ImageAnalysis – set to RGB format if possible for faster conversion
         imageAnalysis = new ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888) // Prefer RGBA
                 .build();
         imageAnalysis.setAnalyzer(cameraExecutor, this::analyzeImage);
 
+        // Unbind all use cases before binding new ones
+        cameraProvider.unbindAll();
+
         // Bind to lifecycle (the activity lifecycle is passed in via the context)
-        cameraProvider.bindToLifecycle((androidx.lifecycle.LifecycleOwner) context,
-                cameraSelector, preview, imageAnalysis);
+        Camera camera = cameraProvider.bindToLifecycle(
+                (androidx.lifecycle.LifecycleOwner) context,
+                cameraSelector,
+                preview,
+                imageAnalysis
+        );
+        Log.d(TAG, "Camera bound: " + camera.getCameraInfo().getLensFacing());
     }
 
     /**
-     * Convert ImageProxy to a format suitable for MediaPipe and send to the hand landmarker.
+     * Process each image frame from CameraX.
      */
     private void analyzeImage(ImageProxy image) {
-        if (handLandmarkerHelper == null) {
-            image.close();
-            return;
-        }
-
-        // Convert ImageProxy to a MediaPipe Image (or a byte array)
-        // For simplicity, we'll get a ByteBuffer from the first plane and pass it.
-        // In a real implementation, you'd convert the YUV_420_888 format to RGB or use MediaPipe's utilities.
-        // Here we assume HandLandmarkerHelper has a method that accepts ImageProxy directly.
+        // Delegate to HandLandmarkerHelper for actual processing
         handLandmarkerHelper.processImageProxy(image);
-
-        // Close the image after processing
-        image.close();
     }
 
+    /**
+     * Stop the camera and release resources.
+     * Call this from onPause().
+     */
     public void stopCamera() {
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
+            cameraProvider = null;
         }
         if (handLandmarkerHelper != null) {
             handLandmarkerHelper.close();
         }
-        cameraExecutor.shutdown();
+        isCameraStarted = false;
+        Log.d(TAG, "Camera stopped");
     }
 }
