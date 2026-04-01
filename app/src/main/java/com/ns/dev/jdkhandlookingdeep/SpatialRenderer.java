@@ -26,21 +26,18 @@ import com.badlogic.gdx.graphics.g3d.environment.PointLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
-
-import com.badlogic.gdx.graphics.Texture;
-import android.graphics.SurfaceTexture;
-
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;           // <-- ADDED
-import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult; // <-- ADDED
 
 public class SpatialRenderer implements ApplicationListener {
 
     private static final String TAG = "SpatialRenderer";
+
+    // 3D components
     private PerspectiveCamera camera;
     private ModelBatch modelBatch;
     private Environment environment;
@@ -50,6 +47,8 @@ public class SpatialRenderer implements ApplicationListener {
     private ModelInstance vinylRecord;
     private ModelInstance currentMediaModel;
     private PointLight focusLight;
+
+    // State
     private boolean isAudioMode = true;
     private float rotationAngle = 0f;
     private boolean mediaLoaded = false;
@@ -58,13 +57,14 @@ public class SpatialRenderer implements ApplicationListener {
     private boolean isPlaying = false;
     private Context androidContext;
     private GestureController gestureController;
-    // Ye variables class ke andar, methods ke bahar hone chahiye
-    private com.badlogic.gdx.graphics.Texture videoTexture;
-    private android.graphics.SurfaceTexture surfaceTexture;
-    private androidx.media3.exoplayer.ExoPlayer exoPlayer; // Agar ye bhi error de raha ho
 
+    // Video texture bridge
+    private SurfaceTexture surfaceTexture;
+    private Texture videoTexture;
+    private Surface videoSurface;
+    private boolean videoTextureInitialized = false;
 
-    // Thread‑safe hand data queue
+    // Thread‑safe hand result queue
     private final ConcurrentLinkedQueue<HandLandmarkerResult> handResultQueue = new ConcurrentLinkedQueue<>();
 
     public interface CameraReadyCallback {
@@ -76,7 +76,7 @@ public class SpatialRenderer implements ApplicationListener {
 
     public SpatialRenderer(Context context) {
         this.androidContext = context;
-        // No 3D object creation here – all must be in create()
+        // No 3D objects created here – all must be in create()
     }
 
     @Override
@@ -92,7 +92,9 @@ public class SpatialRenderer implements ApplicationListener {
             camera.far = 100f;
             camera.update();
 
-            if (cameraReadyCallback != null) cameraReadyCallback.onCameraReady(camera);
+            if (cameraReadyCallback != null) {
+                cameraReadyCallback.onCameraReady(camera);
+            }
 
             modelBatch = new ModelBatch();
             environment = new Environment();
@@ -114,7 +116,7 @@ public class SpatialRenderer implements ApplicationListener {
             createVinylRecord();
             setMode(true);
 
-            // Initialize ExoPlayer on main thread
+            // ExoPlayer initialization on main thread (required)
             mainHandler.post(this::initExoPlayer);
         } catch (Exception e) {
             Log.e(TAG, "Fatal error in create()", e);
@@ -128,8 +130,11 @@ public class SpatialRenderer implements ApplicationListener {
             exoPlayer.addListener(new Player.Listener() {
                 @Override
                 public void onPlaybackStateChanged(int playbackState) {
-                    if (playbackState == Player.STATE_ENDED) isPlaying = false;
+                    if (playbackState == Player.STATE_ENDED) {
+                        isPlaying = false;
+                    }
                 }
+
                 @Override
                 public void onPlayerError(PlaybackException error) {
                     Log.e(TAG, "ExoPlayer error", error);
@@ -149,10 +154,10 @@ public class SpatialRenderer implements ApplicationListener {
                 new BlendingAttribute()
         );
         Vector3[] positions = {
-                new Vector3(-1.2f, 0.8f, 1.2f),
-                new Vector3(0f, 0.8f, 1.2f),
-                new Vector3(1.2f, 0.8f, 1.2f),
-                new Vector3(1.2f, 0.2f, 1.2f)
+                new Vector3(-1.2f, 0.8f, 1.2f), // Play/Pause
+                new Vector3(0f, 0.8f, 1.2f),    // Next
+                new Vector3(1.2f, 0.8f, 1.2f),  // Volume Up
+                new Vector3(1.2f, 0.2f, 1.2f)   // Volume Down
         };
         GestureController.ButtonType[] types = {
                 GestureController.ButtonType.PLAY_PAUSE,
@@ -210,13 +215,16 @@ public class SpatialRenderer implements ApplicationListener {
 
     // Called from MainActivity (main thread) to queue hand results
     public void updateHandResult(HandLandmarkerResult result) {
-        handResultQueue.offer(result);
+        if (result != null) {
+            handResultQueue.offer(result);
+        }
     }
 
     // Process hand results on GL thread
     private void processHandData() {
         HandLandmarkerResult result;
         while ((result = handResultQueue.poll()) != null) {
+            // Null check to avoid crash before camera starts
             if (result != null && result.landmarks() != null && !result.landmarks().isEmpty()) {
                 if (gestureController != null) {
                     gestureController.update(result);
@@ -236,7 +244,9 @@ public class SpatialRenderer implements ApplicationListener {
 
     public void setOnCameraReadyCallback(CameraReadyCallback callback) {
         this.cameraReadyCallback = callback;
-        if (camera != null) callback.onCameraReady(camera);
+        if (camera != null) {
+            callback.onCameraReady(camera);
+        }
     }
 
     public Map<GestureController.ButtonType, ModelInstance> getButtonModels() {
@@ -245,9 +255,12 @@ public class SpatialRenderer implements ApplicationListener {
 
     public void setGestureController(GestureController controller) {
         this.gestureController = controller;
-        if (buttonModels != null) controller.setButtonModels(buttonModels);
+        if (buttonModels != null) {
+            controller.setButtonModels(buttonModels);
+        }
     }
 
+    // Media control methods
     public void mediaPlay() {
         if (exoPlayer != null && currentMediaPath != null) {
             exoPlayer.play();
@@ -256,13 +269,25 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     public void mediaPause() {
-        if (exoPlayer != null) exoPlayer.pause();
-        isPlaying = false;
+        if (exoPlayer != null) {
+            exoPlayer.pause();
+            isPlaying = false;
+        }
     }
 
-    public void mediaNext() { }
-    public void mediaPrevious() { }
-    public void setCarouselTargetAngle(float angle) { if (carousel != null) carousel.setTargetAngle(angle); }
+    public void mediaNext() {
+        // Placeholder for next track
+    }
+
+    public void mediaPrevious() {
+        // Placeholder for previous track
+    }
+
+    public void setCarouselTargetAngle(float angle) {
+        if (carousel != null) {
+            carousel.setTargetAngle(angle);
+        }
+    }
 
     public void loadMedia(String filePath) {
         currentMediaPath = filePath;
@@ -282,15 +307,20 @@ public class SpatialRenderer implements ApplicationListener {
 
             ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
             carousel.update(Gdx.graphics.getDeltaTime());
+
             if (isAudioMode && mediaLoaded) {
-                rotationAngle += Gdx.graphics.getDeltaTime() * 60;
+                rotationAngle += Gdx.graphics.getDeltaTime() * 60; // degrees per second
                 vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
             }
 
             modelBatch.begin(camera);
             carousel.render();
-            for (ModelInstance instance : buttonModels.values()) modelBatch.render(instance, environment);
-            if (currentMediaModel != null) modelBatch.render(currentMediaModel, environment);
+            for (ModelInstance instance : buttonModels.values()) {
+                modelBatch.render(instance, environment);
+            }
+            if (currentMediaModel != null) {
+                modelBatch.render(currentMediaModel, environment);
+            }
             modelBatch.end();
 
             simulateHandTracking();
@@ -312,8 +342,34 @@ public class SpatialRenderer implements ApplicationListener {
         }
     }
 
-    @Override public void resize(int width, int height) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); }
-    @Override public void dispose() { modelBatch.dispose(); carousel.dispose(); for (ModelInstance i : buttonModels.values()) i.model.dispose(); if (vinylRecord != null) vinylRecord.model.dispose(); if (curvedScreen != null) curvedScreen.model.dispose(); if (exoPlayer != null) exoPlayer.release(); if (videoTexture != null) videoTexture.dispose(); if (surfaceTexture != null) surfaceTexture.release(); }
-    @Override public void pause() { }
-    @Override public void resume() { }
+    @Override
+    public void resize(int width, int height) {
+        camera.viewportWidth = width;
+        camera.viewportHeight = height;
+        camera.update();
+    }
+
+    @Override
+    public void dispose() {
+        try {
+            modelBatch.dispose();
+            carousel.dispose();
+            for (ModelInstance instance : buttonModels.values()) {
+                instance.model.dispose();
+            }
+            if (vinylRecord != null) vinylRecord.model.dispose();
+            if (curvedScreen != null) curvedScreen.model.dispose();
+            if (exoPlayer != null) exoPlayer.release();
+            if (videoTexture != null) videoTexture.dispose();
+            if (surfaceTexture != null) surfaceTexture.release();
+        } catch (Exception e) {
+            Log.e(TAG, "Dispose error", e);
+        }
+    }
+
+    @Override
+    public void pause() { }
+
+    @Override
+    public void resume() { }
 }
