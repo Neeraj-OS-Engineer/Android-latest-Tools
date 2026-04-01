@@ -27,8 +27,8 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
-import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 import java.util.concurrent.atomic.AtomicReference;
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 
 
 import java.util.HashMap;
@@ -58,25 +58,25 @@ public class SpatialRenderer implements ApplicationListener {
     private Context androidContext;
     private GestureController gestureController;
 
-    // Video texture handling (OES)
+    // Video texture handling
     private SurfaceTexture surfaceTexture;
     private Texture videoTexture;       // External OES texture
     private Surface videoSurface;
     private boolean videoTextureInitialized = false;
 
-    // Thread‑safe hand data passing
-    private final AtomicReference<HandLandmarkerResult> latestHandResult = new AtomicReference<>(null);
+    // Thread‑safe hand data queue
+    private final ConcurrentLinkedQueue<HandLandmarkerResult> handResultQueue = new ConcurrentLinkedQueue<>();
 
     public interface CameraReadyCallback {
         void onCameraReady(PerspectiveCamera camera);
     }
     private CameraReadyCallback cameraReadyCallback;
 
-    // Main thread handler for ExoPlayer initialization
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public SpatialRenderer(Context context) {
         this.androidContext = context;
+        // No 3D object creation here – all must be in create()
     }
 
     @Override
@@ -123,17 +123,21 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     private void initExoPlayer() {
-        exoPlayer = new ExoPlayer.Builder(androidContext).build();
-        exoPlayer.addListener(new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                if (playbackState == Player.STATE_ENDED) isPlaying = false;
-            }
-            @Override
-            public void onPlayerError(PlaybackException error) {
-                Log.e(TAG, "ExoPlayer error", error);
-            }
-        });
+        try {
+            exoPlayer = new ExoPlayer.Builder(androidContext).build();
+            exoPlayer.addListener(new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(int playbackState) {
+                    if (playbackState == Player.STATE_ENDED) isPlaying = false;
+                }
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                    Log.e(TAG, "ExoPlayer error", error);
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "ExoPlayer init failed", e);
+        }
     }
 
     private void createGlassButtons() {
@@ -204,16 +208,20 @@ public class SpatialRenderer implements ApplicationListener {
         curvedScreen.transform.setTranslation(0, 0.5f, -1.8f);
     }
 
-    // Called from MainActivity (on main thread) to pass hand results
+    // Called from MainActivity (main thread) to queue hand results
     public void updateHandResult(HandLandmarkerResult result) {
-        latestHandResult.set(result);
+        handResultQueue.offer(result);
     }
 
     // Process hand results on GL thread
     private void processHandData() {
-        HandLandmarkerResult result = latestHandResult.getAndSet(null);
-        if (result != null && gestureController != null) {
-            gestureController.update(result);
+        HandLandmarkerResult result;
+        while ((result = handResultQueue.poll()) != null) {
+            if (result != null && result.landmarks() != null && !result.landmarks().isEmpty()) {
+                if (gestureController != null) {
+                    gestureController.update(result);
+                }
+            }
         }
     }
 
@@ -292,12 +300,16 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     private void simulateHandTracking() {
-        float mouseX = Gdx.input.getX();
-        float mouseY = Gdx.input.getY();
-        float x = (mouseX / Gdx.graphics.getWidth() - 0.5f) * 3.5f;
-        float y = (1 - mouseY / Gdx.graphics.getHeight() - 0.5f) * 2.5f + 0.8f;
-        float z = 1.2f;
-        focusLight.setPosition(x, y, z);
+        try {
+            float mouseX = Gdx.input.getX();
+            float mouseY = Gdx.input.getY();
+            float x = (mouseX / Gdx.graphics.getWidth() - 0.5f) * 3.5f;
+            float y = (1 - mouseY / Gdx.graphics.getHeight() - 0.5f) * 2.5f + 0.8f;
+            float z = 1.2f;
+            focusLight.setPosition(x, y, z);
+        } catch (Exception e) {
+            Log.e(TAG, "simulateHandTracking error", e);
+        }
     }
 
     @Override public void resize(int width, int height) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); }
