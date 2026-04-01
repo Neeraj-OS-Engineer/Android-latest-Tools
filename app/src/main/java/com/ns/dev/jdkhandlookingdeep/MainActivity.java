@@ -14,10 +14,13 @@ import androidx.core.content.ContextCompat;
 
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
+import com.badlogic.gdx.backends.android.AndroidGraphics;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 
 import java.io.File;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AndroidApplication implements CameraXHelper.HandLandmarkListener {
 
@@ -33,18 +36,16 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     private GestureController gestureController;
     private CameraXHelper cameraHelper;
     private TextView debugText;
+    private FrameLayout gdxContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Set the layout
         setContentView(R.layout.activity_main);
 
-        // Get references to UI elements
+        gdxContainer = findViewById(R.id.gdx_container);
         debugText = findViewById(R.id.debug_text);
 
-        // Check permissions
         if (!hasPermissions()) {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, PERMISSION_REQUEST_CODE);
         } else {
@@ -83,10 +84,8 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     }
 
     private void initApp() {
-        // Start media scanning service
         startMediaScanService();
 
-        // Configure LibGDX
         AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
         config.useImmersiveMode = true;
         config.useAccelerometer = false;
@@ -95,34 +94,17 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
         // Create renderer
         spatialRenderer = new SpatialRenderer(this);
 
-        // Initialize LibGDX – this adds its view to the activity's root view.
-        // To put it inside the FrameLayout, we need to use initializeForView,
-        // but AndroidApplication doesn't expose that directly. Instead, we can
-        // use AndroidApplication.initialize() which replaces the content view.
-        // To keep the layout, we'll remove the default view and add it to our container.
-        initialize(spatialRenderer, config);
+        // Get the LibGDX view without replacing the content view
+        View gdxView = initializeForView(spatialRenderer, config);
 
-        // After initialization, the GLSurfaceView is added to the root window.
-        // We'll move it to our FrameLayout.
-        FrameLayout container = findViewById(R.id.gdx_container);
-        View gdxView = getWindow().getDecorView().findViewById(android.R.id.content).getRootView();
-        // Actually, the GLSurfaceView is the child of the root view. Simpler:
-        // Wait a moment and then move the view.
-        // But to avoid complexity, we'll simply use the default fullscreen view
-        // and overlay the debug text. The layout's container isn't used.
-        // Instead, we'll just use the default fullscreen view and show debug text on top.
-        // This is simpler and works.
-
-        // The debug text will appear over the LibGDX view because it's in the same layout.
-        // We need to make sure the layout's background is transparent and the debug text
-        // is on top. The current layout has a black background, but the GLSurfaceView
-        // will be added on top of it. To keep the debug text visible, we set the debug text
-        // to be visible and above the GLSurfaceView.
-        // Actually, we need to bring the debug text to the front.
+        // Add it to our container
+        gdxContainer.addView(gdxView);
+        // Ensure debug text stays on top
         debugText.bringToFront();
 
-        // Set up gesture controller after camera is ready
+        // Setup gesture controller after camera is ready (on GL thread)
         spatialRenderer.setOnCameraReadyCallback(camera -> {
+            // GestureController will run on GL thread – safe
             gestureController = new GestureController(camera, new GestureController.GestureListener() {
                 @Override
                 public void onPlay() { spatialRenderer.mediaPlay(); }
@@ -134,25 +116,24 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
                 public void onPrevious() { spatialRenderer.mediaPrevious(); }
                 @Override
                 public void onButtonTouch(GestureController.ButtonType buttonType) {
-                    // Optionally show debug text
-                    debugText.setText("Button: " + buttonType);
-                    debugText.setVisibility(View.VISIBLE);
+                    runOnUiThread(() -> {
+                        debugText.setText("Button: " + buttonType);
+                        debugText.setVisibility(View.VISIBLE);
+                    });
                 }
                 @Override
                 public void onHandXChange(float normalizedX) {
-                    if (spatialRenderer != null) {
-                        spatialRenderer.setCarouselTargetAngle(normalizedX * 2 * (float) Math.PI);
-                    }
+                    spatialRenderer.setCarouselTargetAngle(normalizedX * 2 * (float) Math.PI);
                 }
             });
             spatialRenderer.setGestureController(gestureController);
         });
 
-        // Start camera
+        // Start camera (on main thread)
         cameraHelper = new CameraXHelper(this, this);
         cameraHelper.startCamera();
 
-        // Load media list
+        // Load media list in background
         loadMediaList();
     }
 
@@ -178,6 +159,8 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
 
     @Override
     public void onHandLandmarks(HandLandmarkerResult result) {
+        // Called on main thread from HandLandmarkerHelper
+        // Pass to GestureController (which is thread‑safe via its update method)
         if (gestureController != null) {
             gestureController.update(result);
         }
@@ -199,5 +182,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
     protected void onDestroy() {
         super.onDestroy();
         if (cameraHelper != null) cameraHelper.stopCamera();
+        // LibGDX view will be disposed automatically via AndroidApplication
     }
 }
