@@ -24,7 +24,7 @@ import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class MainActivity extends AndroidApplication implements LifecycleOwner {
+public class MainActivity extends AndroidApplication implements LifecycleOwner, CameraXHelper.HandLandmarkListener {
 
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 100;
