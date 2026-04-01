@@ -3,6 +3,7 @@ package com.ns.dev.jdkhandlookingdeep;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -19,8 +20,6 @@ import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import android.util.Log;
-
 
 public class MainActivity extends AndroidApplication implements CameraXHelper.HandLandmarkListener {
 
@@ -95,12 +94,11 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
 
             spatialRenderer = new SpatialRenderer(this);
 
-            // Embed LibGDX view without replacing content view
+            // Use initializeForView instead of initialize
             View gdxView = initializeForView(spatialRenderer, config);
             gdxContainer.addView(gdxView);
             debugText.bringToFront();
 
-            // Setup gesture controller after camera is ready
             spatialRenderer.setOnCameraReadyCallback(camera -> {
                 gestureController = new GestureController(camera, new GestureController.GestureListener() {
                     @Override public void onPlay() { spatialRenderer.mediaPlay(); }
@@ -122,7 +120,7 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
                 spatialRenderer.setGestureController(gestureController);
             });
 
-            // Start camera – only after activity is resumed
+            // Start camera – only after activity is fully resumed
             if (cameraStarted.compareAndSet(false, true)) {
                 cameraHelper = new CameraXHelper(this, this);
                 cameraHelper.startCamera();
@@ -158,7 +156,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
 
     @Override
     public void onHandLandmarks(HandLandmarkerResult result) {
-        // Called on main thread from HandLandmarkerHelper
         if (gestureController != null) {
             gestureController.update(result);
         }
@@ -170,8 +167,6 @@ public class MainActivity extends AndroidApplication implements CameraXHelper.Ha
         if (cameraHelper != null && !cameraStarted.get()) {
             cameraStarted.set(true);
             cameraHelper.startCamera();
-        } else if (cameraHelper != null && cameraStarted.get()) {
-            // Already started, no action needed
         }
     }
 
