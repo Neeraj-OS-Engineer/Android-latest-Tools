@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Container for the LibGDX GLSurfaceView (added programmatically) -->
+    <!-- Container for LibGDX GLSurfaceView (added programmatically) -->
     <FrameLayout
         android:id="@+id/gdx_container"
         android:layout_width="match_parent"
