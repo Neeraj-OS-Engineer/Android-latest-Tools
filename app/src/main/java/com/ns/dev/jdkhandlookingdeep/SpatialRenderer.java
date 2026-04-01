@@ -1,8 +1,12 @@
 package com.ns.dev.jdkhandlookingdeep;
 
 import android.content.Context;
+import android.graphics.SurfaceTexture;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.Surface;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -26,6 +30,8 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SpatialRenderer implements ApplicationListener {
 
@@ -48,10 +54,22 @@ public class SpatialRenderer implements ApplicationListener {
     private Context androidContext;
     private GestureController gestureController;
 
+    // Video texture handling (OES)
+    private SurfaceTexture surfaceTexture;
+    private Texture videoTexture;       // External OES texture
+    private Surface videoSurface;
+    private boolean videoTextureInitialized = false;
+
+    // Thread‑safe hand data passing
+    private final AtomicReference<HandLandmarkerResult> latestHandResult = new AtomicReference<>(null);
+
     public interface CameraReadyCallback {
         void onCameraReady(PerspectiveCamera camera);
     }
     private CameraReadyCallback cameraReadyCallback;
+
+    // Main thread handler for ExoPlayer initialization
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public SpatialRenderer(Context context) {
         this.androidContext = context;
@@ -60,7 +78,7 @@ public class SpatialRenderer implements ApplicationListener {
     @Override
     public void create() {
         try {
-            // Camera setup
+            // Camera setup (GL thread)
             float screenWidth = Gdx.graphics.getWidth();
             float screenHeight = Gdx.graphics.getHeight();
             camera = new PerspectiveCamera(67, screenWidth, screenHeight);
@@ -91,10 +109,12 @@ public class SpatialRenderer implements ApplicationListener {
             createCurvedScreen();
             createVinylRecord();
             setMode(true);
-            initExoPlayer();
+
+            // Initialize ExoPlayer on main thread
+            mainHandler.post(this::initExoPlayer);
         } catch (Exception e) {
             Log.e(TAG, "Fatal error in create()", e);
-            Gdx.app.exit(); // Exit gracefully
+            Gdx.app.exit();
         }
     }
 
@@ -160,7 +180,6 @@ public class SpatialRenderer implements ApplicationListener {
             placeholder = new Texture(Gdx.files.internal("media_placeholder.png"));
         } catch (Exception e) {
             Log.w(TAG, "Placeholder texture missing, generating fallback", e);
-            // Generate a simple checkered texture
             Pixmap pixmap = new Pixmap(512, 512, Pixmap.Format.RGBA8888);
             pixmap.setColor(0.2f, 0.2f, 0.2f, 1f);
             pixmap.fill();
@@ -179,6 +198,19 @@ public class SpatialRenderer implements ApplicationListener {
                 VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates);
         curvedScreen = new ModelInstance(screenModel);
         curvedScreen.transform.setTranslation(0, 0.5f, -1.8f);
+    }
+
+    // Called from MainActivity (on main thread) to pass hand results
+    public void updateHandResult(HandLandmarkerResult result) {
+        latestHandResult.set(result);
+    }
+
+    // Process hand results on GL thread
+    private void processHandData() {
+        HandLandmarkerResult result = latestHandResult.getAndSet(null);
+        if (result != null && gestureController != null) {
+            gestureController.update(result);
+        }
     }
 
     public void setMode(boolean audio) {
@@ -204,8 +236,18 @@ public class SpatialRenderer implements ApplicationListener {
         if (buttonModels != null) controller.setButtonModels(buttonModels);
     }
 
-    public void mediaPlay() { if (exoPlayer != null && currentMediaPath != null) exoPlayer.play(); }
-    public void mediaPause() { if (exoPlayer != null) exoPlayer.pause(); }
+    public void mediaPlay() {
+        if (exoPlayer != null && currentMediaPath != null) {
+            exoPlayer.play();
+            isPlaying = true;
+        }
+    }
+
+    public void mediaPause() {
+        if (exoPlayer != null) exoPlayer.pause();
+        isPlaying = false;
+    }
+
     public void mediaNext() { }
     public void mediaPrevious() { }
     public void setCarouselTargetAngle(float angle) { if (carousel != null) carousel.setTargetAngle(angle); }
@@ -224,17 +266,21 @@ public class SpatialRenderer implements ApplicationListener {
     @Override
     public void render() {
         try {
+            processHandData(); // handle incoming hand results
+
             ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
             carousel.update(Gdx.graphics.getDeltaTime());
             if (isAudioMode && mediaLoaded) {
                 rotationAngle += Gdx.graphics.getDeltaTime() * 60;
                 vinylRecord.transform.setToRotation(0, 1, 0, rotationAngle);
             }
+
             modelBatch.begin(camera);
             carousel.render();
             for (ModelInstance instance : buttonModels.values()) modelBatch.render(instance, environment);
             if (currentMediaModel != null) modelBatch.render(currentMediaModel, environment);
             modelBatch.end();
+
             simulateHandTracking();
         } catch (Exception e) {
             Log.e(TAG, "Render error", e);
@@ -251,7 +297,7 @@ public class SpatialRenderer implements ApplicationListener {
     }
 
     @Override public void resize(int width, int height) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); }
-    @Override public void dispose() { modelBatch.dispose(); carousel.dispose(); for (ModelInstance i : buttonModels.values()) i.model.dispose(); if (vinylRecord != null) vinylRecord.model.dispose(); if (curvedScreen != null) curvedScreen.model.dispose(); if (exoPlayer != null) exoPlayer.release(); }
+    @Override public void dispose() { modelBatch.dispose(); carousel.dispose(); for (ModelInstance i : buttonModels.values()) i.model.dispose(); if (vinylRecord != null) vinylRecord.model.dispose(); if (curvedScreen != null) curvedScreen.model.dispose(); if (exoPlayer != null) exoPlayer.release(); if (videoTexture != null) videoTexture.dispose(); if (surfaceTexture != null) surfaceTexture.release(); }
     @Override public void pause() { }
     @Override public void resume() { }
 }
