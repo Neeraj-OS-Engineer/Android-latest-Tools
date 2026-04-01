@@ -48,7 +48,7 @@ public class HandLandmarkerHelper {
             HandLandmarkerOptions options = HandLandmarkerOptions.builder()
                     .setBaseOptions(baseOptions)
                     .setRunningMode(RunningMode.LIVE_STREAM)
-                    .setResultListener(this::onResult)   // Only 2 parameters: result, mpImage
+                    .setResultListener(this::onResult)
                     .setErrorListener(this::onError)
                     .setNumHands(2)
                     .build();
@@ -60,7 +60,6 @@ public class HandLandmarkerHelper {
         }
     }
 
-    // CRITICAL: Only 2 parameters – matches MediaPipe 0.10.14
     private void onResult(HandLandmarkerResult result, MPImage mpImage) {
         if (listener != null) {
             mainHandler.post(() -> listener.onHandLandmarks(result));
@@ -88,17 +87,11 @@ public class HandLandmarkerHelper {
             } catch (Exception e) {
                 Log.e(TAG, "Detection error", e);
             } finally {
-                // Must close to prevent camera freeze
                 imageProxy.close();
             }
         });
     }
 
-    /**
-     * Fast conversion from YUV_420_888 to RGB Bitmap.
-     * No rotation is applied – the image remains in its natural orientation
-     * (which is already correct for portrait).
-     */
     private Bitmap convertYuv420888ToBitmap(ImageProxy imageProxy) {
         Image image = imageProxy.getImage();
         if (image == null) return null;
@@ -106,7 +99,6 @@ public class HandLandmarkerHelper {
         int width = image.getWidth();
         int height = image.getHeight();
 
-        // Get YUV planes
         Image.Plane[] planes = image.getPlanes();
         ByteBuffer yBuffer = planes[0].getBuffer();
         ByteBuffer uBuffer = planes[1].getBuffer();
@@ -119,18 +111,15 @@ public class HandLandmarkerHelper {
         int[] rgb = new int[width * height];
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                // Y index
                 int yIndex = y * yRowStride + x;
                 int Y = yBuffer.get(yIndex) & 0xFF;
 
-                // UV index (simple subsampling)
                 int uvX = x / 2;
                 int uvY = y / 2;
                 int uvIndex = uvY * uvRowStride + uvX * uvPixelStride;
                 int U = uBuffer.get(uvIndex) & 0xFF;
                 int V = vBuffer.get(uvIndex) & 0xFF;
 
-                // YUV to RGB (BT.601)
                 int R = (int) (Y + 1.402 * (V - 128));
                 int G = (int) (Y - 0.344 * (U - 128) - 0.714 * (V - 128));
                 int B = (int) (Y + 1.772 * (U - 128));
