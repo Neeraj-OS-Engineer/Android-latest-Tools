@@ -27,15 +27,12 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 
-import java.util.concurrent.atomic.AtomicReference;
-import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
-
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReference;           // <-- ADDED
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult; // <-- ADDED
 
 public class SpatialRenderer implements ApplicationListener {
 
@@ -57,12 +54,6 @@ public class SpatialRenderer implements ApplicationListener {
     private boolean isPlaying = false;
     private Context androidContext;
     private GestureController gestureController;
-
-    // Video texture handling
-    private SurfaceTexture surfaceTexture;
-    private Texture videoTexture;       // External OES texture
-    private Surface videoSurface;
-    private boolean videoTextureInitialized = false;
 
     // Thread‑safe hand data queue
     private final ConcurrentLinkedQueue<HandLandmarkerResult> handResultQueue = new ConcurrentLinkedQueue<>();
